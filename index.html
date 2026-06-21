@@ -421,6 +421,7 @@ function doPost(e) {
     if (d.action === 'logPO')         return logPO(d);
     if (d.action === 'pushInventory') return pushInventory(d);
     if (d.action === 'pushMasterList') return pushMasterList(d);
+    if (d.action === 'decrementStock') return decrementStock(d);
     return respond({error:'Unknown action'});
   } catch(err) { return respond({error:err.toString()}); }
 }
@@ -428,6 +429,7 @@ function doPost(e) {
 function doGet(e) {
   if (e.parameter.action === 'ping') return respond({status:'ok'});
   if (e.parameter.action === 'getMasterList') return getMasterList();
+  if (e.parameter.action === 'getInventory') return getInventory();
   return respond({status:'Khonsu Tech OPS running'});
 }
 
@@ -463,26 +465,13 @@ function initSheets() {
 }
 
 function logSale(d) {
-  const sh  = SS.getSheetByName('Sales Log');
-  const inv = SS.getSheetByName('Inventory');
+  const sh = SS.getSheetByName('Sales Log');
   const rows = d.rows || [];
   rows.forEach(r => {
     sh.appendRow([d.date, r.promoCode||'', r.itemName, r.variant||'', r.color||'',
       r.qty, r.unitPrice, r.srp, r.soldPrice, r.pasaPrice||0,
       r.discount||0, r.netSales||0, r.payment, r.soldType, r.promoter||'', r.staff]);
   });
-  if (inv) {
-    const data = inv.getDataRange().getValues();
-    rows.forEach(r => {
-      for (let i = 1; i < data.length; i++) {
-        const k = data[i][1]+(data[i][2]?' '+data[i][2]:'')+(data[i][3]?'/'+data[i][3]:'');
-        if (k.trim() === (r.productKey||'').trim()) {
-          inv.getRange(i+1,8).setValue(Math.max(0, Number(data[i][7]) - r.qty));
-          break;
-        }
-      }
-    });
-  }
   return respond({status:'Sale logged', count: rows.length});
 }
 
@@ -513,6 +502,39 @@ function pushMasterList(d) {
   if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow()-1);
   (d.rows||[]).forEach(r => sh.appendRow(r));
   return respond({status:'Master List pushed', count:(d.rows||[]).length});
+}
+
+function getInventory() {
+  const sh = SS.getSheetByName('Inventory');
+  if (!sh) return respond({error:'No Inventory sheet'});
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return respond({rows:[]});
+  const rows = data.slice(1).map(row => {
+    const name = String(row[1]||'');
+    const ram = String(row[2]||'');
+    const storage = String(row[3]||'');
+    const key = name + (ram?' '+ram:'') + (storage?'/'+storage:'');
+    return {key:key.trim(), stock:Number(row[7])||0};
+  }).filter(r => r.key);
+  return respond({rows});
+}
+
+function decrementStock(d) {
+  const sh = SS.getSheetByName('Inventory');
+  if (!sh) return respond({error:'No Inventory sheet'});
+  const data = sh.getDataRange().getValues();
+  (d.items||[]).forEach(item => {
+    for (let i = 1; i < data.length; i++) {
+      const k = String(data[i][1])+(data[i][2]?' '+data[i][2]:'')+(data[i][3]?'/'+data[i][3]:'');
+      if (k.trim() === (item.productKey||'').trim()) {
+        const newStock = Math.max(0, Number(data[i][7]) - item.qty);
+        sh.getRange(i+1,8).setValue(newStock);
+        data[i][7] = newStock;
+        break;
+      }
+    }
+  });
+  return respond({status:'ok'});
 }
 
 function respond(data) {

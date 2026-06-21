@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, saveInv } from './state.js';
 import { ik } from './utils.js';
 import { toast } from './toast.js';
 import { buildCatFilter, renderProducts } from './products.js';
@@ -95,6 +95,38 @@ export async function pushInventory() {
 export function copyScript() {
   navigator.clipboard.writeText(document.getElementById('scriptText').innerText);
   toast('Script copied!', 'success');
+}
+
+export async function syncInventoryFromSheet() {
+  if (!state.scriptUrl) return;
+  try {
+    const res = await fetch(state.scriptUrl + '?action=getInventory');
+    const data = await res.json();
+    if (data.error || !data.rows) return;
+    let updated = 0;
+    data.rows.forEach(row => {
+      if (row.key && state.inventory[row.key] !== undefined) {
+        state.inventory[row.key].stock = Number(row.stock) || 0;
+        updated++;
+      }
+    });
+    if (updated > 0) saveInv();
+  } catch (e) {
+    console.warn('Inventory sync failed:', e.message);
+  }
+}
+
+export async function pushStockDecrement(items) {
+  if (!state.scriptUrl || !items.length) return;
+  try {
+    await fetch(state.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'decrementStock', items }),
+    });
+  } catch (e) {
+    console.warn('Stock decrement sync failed:', e.message);
+  }
 }
 
 window.connectSheet = connectSheet;

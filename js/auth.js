@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { toast } from './toast.js';
 import { buildCatFilter, renderProducts } from './products.js';
-import { syncPricingFromSheet } from './setup.js';
+import { syncPricingFromSheet, syncInventoryFromSheet } from './setup.js';
 import { showPage, showS } from './nav.js';
 
 export function login(user) {
@@ -15,7 +15,10 @@ export function login(user) {
   buildCatFilter();
   renderProducts();
   if (state.scriptUrl) {
-    setTimeout(() => { syncPricingFromSheet().catch(() => {}); }, 800);
+    setTimeout(() => {
+      syncPricingFromSheet().catch(() => {});
+      syncInventoryFromSheet().catch(() => {});
+    }, 800);
   }
   toast('Welcome, ' + user + '!', 'success');
 }

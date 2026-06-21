@@ -7,6 +7,7 @@ import { showS } from './nav.js';
 import { openDetail } from './products.js';
 import { renderSalesTable, renderSummary } from './report.js';
 import { getCustomerInfo, resetCustomerInfo } from './customer.js';
+import { pushStockDecrement } from './setup.js';
 
 export function buildPendingItem() {
   if (!state.selectedProduct) return null;
@@ -222,6 +223,7 @@ export function confirmSale() {
   if (!state.pendingItems.length) { toast('No items to confirm', 'error'); return; }
   const so = getOrCreateSO();
   const now = Date.now();
+  const decrements = [];
 
   state.pendingItems.forEach((item, i) => {
     const p = item.product;
@@ -239,7 +241,10 @@ export function confirmSale() {
       customer: item.customer || null,
     };
     state.saleRows.push(row);
-    if (state.inventory[ik(p)]) state.inventory[ik(p)].stock = Math.max(0, state.inventory[ik(p)].stock - item.qty);
+    if (state.inventory[ik(p)]) {
+      state.inventory[ik(p)].stock = Math.max(0, state.inventory[ik(p)].stock - item.qty);
+      decrements.push({ productKey: ik(p), qty: item.qty });
+    }
 
     if (item.addon) {
       const a = item.addon, ak = ik(a.product);
@@ -251,7 +256,10 @@ export function confirmSale() {
         payment: item.payment, soldType: item.soldType, promoter: item.promoter,
         staff: state.currentUser, productKey: ak, isAddon: true, customer: null,
       });
-      if (state.inventory[ak]) state.inventory[ak].stock = Math.max(0, state.inventory[ak].stock - 1);
+      if (state.inventory[ak]) {
+        state.inventory[ak].stock = Math.max(0, state.inventory[ak].stock - 1);
+        decrements.push({ productKey: ak, qty: 1 });
+      }
     }
 
     if (item.promoAddon) {
@@ -266,16 +274,21 @@ export function confirmSale() {
           payment: item.payment, soldType: item.soldType, promoter: '',
           staff: state.currentUser, productKey: paKey, isPromoAddon: true, customer: null,
         });
-        if (state.inventory[paKey]) state.inventory[paKey].stock = Math.max(0, state.inventory[paKey].stock - item.qty);
+        if (state.inventory[paKey]) {
+          state.inventory[paKey].stock = Math.max(0, state.inventory[paKey].stock - item.qty);
+          decrements.push({ productKey: paKey, qty: item.qty });
+        }
       }
     }
 
     if (freebieKey && state.inventory[freebieKey]) {
       state.inventory[freebieKey].stock = Math.max(0, state.inventory[freebieKey].stock - item.qty);
+      decrements.push({ productKey: freebieKey, qty: item.qty });
     }
   });
 
   saveInv();
+  if (state.scriptUrl && decrements.length) pushStockDecrement(decrements).catch(() => {});
   state.pendingItems = [];
   resetCustomerInfo();
   state.currentSO = null;
