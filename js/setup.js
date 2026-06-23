@@ -13,6 +13,7 @@ export async function syncPricingFromSheet() {
     if (data.error) { toast('Sync error: ' + data.error, 'error'); return; }
     const rows = data.rows || [];
     if (!rows.length) { toast('No data found in Master List sheet', 'error'); return; }
+    state.priceUpdated.clear();
     let updated = 0;
     rows.forEach(row => {
       const keys = Object.keys(row);
@@ -31,8 +32,13 @@ export async function syncPricingFromSheet() {
         (p.storage || '').toLowerCase() === (storage || '').toLowerCase()
       );
       if (idx >= 0) {
+        const key = ik(state.masterList[idx]);
+        const oldSrp = state.masterList[idx].srp;
         if (unitPrice > 0) state.masterList[idx].unitPrice = unitPrice;
-        if (srp > 0) state.masterList[idx].srp = srp;
+        if (srp > 0) {
+          if (srp !== oldSrp) state.priceUpdated.set(key, oldSrp);
+          state.masterList[idx].srp = srp;
+        }
         if (colors) state.masterList[idx].colors = colors;
         state.masterList[idx].obsolete = status.includes('obsolete');
         updated++;

@@ -58,6 +58,7 @@ export function saveNewItem() {
   };
   state.masterList.push(newP);
   if (!state.inventory[ik(newP)]) state.inventory[ik(newP)] = { stock: 0, reorder: 1 };
+  state.newItems.add(ik(newP));
   closeNewItemModal();
   renderML();
   toast('Product added — remember to Save Changes', 'success');

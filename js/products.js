@@ -66,12 +66,21 @@ export function renderProducts() {
     const isLow = !isOut && inv.stock <= state.settings.lowStockThreshold;
     let sc = 'sok', sl = inv.stock + ' left';
     if (isOut) { sc = 'sout'; sl = 'OUT'; } else if (isLow) { sc = 'slow'; sl = 'LOW:' + inv.stock; }
-    return `<div class="pc${isOut ? ' oos' : ''}" data-i="${i}">
-      <div class="sb ${sc}">${sl}</div>
+    const isNew = state.newItems.has(key);
+    const isPriceUp = state.priceUpdated.has(key);
+    const hero = isNew
+      ? `<div class="pc-hero"><span class="pc-hero-lbl">✨ New Arrival</span><span class="pc-hero-stk ${sc}">${sl}</span></div>`
+      : '';
+    const priceBadge = isPriceUp
+      ? ` <span class="price-tag" title="Was ₱${(state.priceUpdated.get(key) || 0).toLocaleString()}">↕ Updated</span>`
+      : '';
+    return `<div class="pc${isOut ? ' oos' : ''}${isNew ? ' pc-new' : ''}${isPriceUp ? ' pc-price-up' : ''}" data-i="${i}">
+      ${hero}
+      ${isNew ? '' : `<div class="sb ${sc}">${sl}</div>`}
       <div class="cl">${p.category}</div>
       <div class="pn">${p.name}</div>
       <div class="pv">${vl(p) || '—'}</div>
-      <div class="pp">₱${p.srp.toLocaleString()}</div>
+      <div class="pp">₱${p.srp.toLocaleString()}${priceBadge}</div>
     </div>`;
   }).join('') || '<div style="padding:40px;text-align:center;color:var(--muted);">No products found.</div>';
   grid.onclick = function (e) {

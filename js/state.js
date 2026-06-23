@@ -19,6 +19,8 @@ export const state = {
   purchaseOrders: JSON.parse(localStorage.getItem('kt_pos') || '[]'),
   scriptUrl: localStorage.getItem('kt_url') || '',
   editingPOId: null,
+  priceUpdated: new Map(),  // productKey → oldSrp; populated by syncPricingFromSheet
+  newItems: new Set(),       // productKey; populated by saveNewItem
 };
 
 export function saveInv() {
