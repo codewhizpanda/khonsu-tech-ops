@@ -89,6 +89,13 @@
   <button class="tab" id="tab-setup" onclick="showPage('setup',event)"><svg class="ic" aria-hidden="true"><use href="#ic-zap"/></svg> Setup</button>
 </nav>
 
+<!-- SYNC BANNER -->
+<div id="syncBanner" style="display:none;position:fixed;bottom:24px;left:24px;z-index:300;background:#b45309;color:#fff;border-radius:12px;padding:12px 16px;font-size:13px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.25);align-items:center;gap:12px;max-width:360px;">
+  <svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <span id="syncBannerMsg">Unsynced items — data saved locally</span>
+  <button id="syncBannerBtn" onclick="syncNow()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Sync Now</button>
+</div>
+
 <!-- SALES PAGE -->
 <div class="page active" id="page-sales">
   <!-- S1: PICKER -->
@@ -488,52 +495,48 @@
   <div class="card">
     <div class="stepb">2</div><h3>Add the Apps Script</h3>
     <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">Go to <strong>Extensions → Apps Script</strong>, paste below, then <strong>Deploy → New Deployment → Web App</strong> (access: Anyone).</p>
-    <div class="code-block"><button class="cpbtn" onclick="copyScript()">Copy</button><span id="scriptText">// Khonsu Tech Operations — Apps Script Backend
+    <div class="code-block"><button class="cpbtn" onclick="copyScript()">Copy</button><span id="scriptText">// Khonsu Tech Operations — Apps Script Backend v2
+// Normalized schema: Products, Inventory, Sales, Purchase_Orders, PO_Items, Promotions, Freebies, Settings
 const SS = SpreadsheetApp.getActiveSpreadsheet();
 
 function doPost(e) {
   try {
     const d = JSON.parse(e.postData.contents);
-    if (d.action === 'init')          return initSheets();
-    if (d.action === 'logSale')       return logSale(d);
-    if (d.action === 'logPO')         return logPO(d);
-    if (d.action === 'pushInventory') return pushInventory(d);
-    if (d.action === 'pushMasterList') return pushMasterList(d);
-    if (d.action === 'decrementStock') return decrementStock(d);
-    if (d.action === 'verifyPin')     return verifyPin(d);
-    if (d.action === 'setPin')        return setPin(d);
+    if (d.action === 'init')                 return initSheets();
+    if (d.action === 'logSale')              return logSale(d);
+    if (d.action === 'saveProducts')         return saveProducts(d);
+    if (d.action === 'saveInventory')        return saveInventory(d);
+    if (d.action === 'updateInventoryItems') return updateInventoryItems(d);
+    if (d.action === 'savePO')               return savePO(d);
+    if (d.action === 'updatePOStatus')       return updatePOStatus(d);
+    if (d.action === 'savePromotions')       return savePromotions(d);
+    if (d.action === 'saveFreebies')         return saveFreebies(d);
+    if (d.action === 'saveSettings')         return saveSettings(d);
+    if (d.action === 'verifyPin')            return verifyPin(d);
+    if (d.action === 'setPin')               return setPin(d);
     return respond({error:'Unknown action'});
   } catch(err) { return respond({error:err.toString()}); }
 }
 
 function doGet(e) {
-  if (e.parameter.action === 'ping') return respond({status:'ok'});
-  if (e.parameter.action === 'getMasterList') return getMasterList();
-  if (e.parameter.action === 'getInventory') return getInventory();
-  return respond({status:'Khonsu Tech OPS running'});
+  if (e.parameter.action === 'ping')       return respond({status:'ok'});
+  if (e.parameter.action === 'getAllData') return getAllData();
+  return respond({status:'Khonsu Tech OPS v2 running'});
 }
 
-function getMasterList() {
-  const sh = SS.getSheetByName('Master List') || SS.getSheetByName('Inventory');
-  if (!sh) return respond({error:'No Master List sheet found'});
-  const data = sh.getDataRange().getValues();
-  if (data.length < 2) return respond({rows:[]});
-  const headers = data[0].map(h => String(h).toLowerCase().trim());
-  const rows = data.slice(1).map(row => {
-    const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
-    return obj;
-  });
-  return respond({rows});
-}
-
+// ─── INIT ────────────────────────────────────────────────────────────────────
 function initSheets() {
   const tabs = {
-    'Sales Log': ['Date','Bundle','Item','Variant','Color','Qty','Unit Price','SRP','Sold Price','Pasa Price','Discount','Net Sales','Payment','Sold Type','Promoter','Staff'],
-    'Inventory': ['Category','Model','RAM','Storage','Colors','Unit Price','SRP','Stock','Reorder Point'],
-    'Purchase Orders': ['PO Number','Date','Supplier','Items','Quantities','Status','Approver']
+    'Products':        ['ProductKey','Category','Name','RAM','Storage','Colors','UnitPrice','SRP','Status'],
+    'Inventory':       ['ProductKey','Stock','ReorderPoint','LastUpdated'],
+    'Sales':           ['SaleID','Date','Time','SO','BundleCode','ItemName','Variant','Color','Qty','UnitPrice','SRP','SoldPrice','PasaPrice','Discount','NetSales','Payment','SoldType','Promoter','Staff','IsAddon','IsPromotion','CustomerName','CustomerContact','CustomerEmail'],
+    'Purchase_Orders': ['POID','Date','Supplier','Approver','Status'],
+    'PO_Items':        ['POID','ItemName','Qty','Color'],
+    'Promotions':      ['BundleID','Name','Price','MainProductKey','MainProductName','AddonProductKey','AddonProductName'],
+    'Freebies':        ['MainProductKey','FreebieProductKey','MainProductName','FreebieName'],
+    'Settings':        ['Key','Value']
   };
-  Object.entries(tabs).forEach(([name,headers]) => {
+  Object.entries(tabs).forEach(([name, headers]) => {
     let sh = SS.getSheetByName(name);
     if (!sh) sh = SS.insertSheet(name);
     if (sh.getLastRow() === 0) {
@@ -544,110 +547,185 @@ function initSheets() {
   return respond({status:'Initialized'});
 }
 
+// ─── GET ALL DATA ─────────────────────────────────────────────────────────────
+function getAllData() {
+  const result = {};
+  result.products   = sheetToObjects('Products');
+  result.inventory  = sheetToObjects('Inventory');
+  result.promotions = sheetToObjects('Promotions');
+  result.freebies   = sheetToObjects('Freebies');
+  result.purchaseOrders = getPOs();
+  const raw = sheetToObjects('Settings');
+  result.settings = {};
+  raw.forEach(r => { if (r.Key) result.settings[r.Key] = r.Value; });
+  return respond(result);
+}
+
+function sheetToObjects(name) {
+  const sh = SS.getSheetByName(name);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const data = sh.getDataRange().getValues();
+  const h = data[0];
+  return data.slice(1).map(row => { const o = {}; h.forEach((k,i) => o[k]=row[i]); return o; });
+}
+
+function getPOs() {
+  const pos = sheetToObjects('Purchase_Orders');
+  const items = sheetToObjects('PO_Items');
+  const map = {};
+  pos.forEach(po => { po.items = []; map[po.POID] = po; });
+  items.forEach(item => { if (map[item.POID]) map[item.POID].items.push({name:item.ItemName, qty:Number(item.Qty)||0, color:item.Color}); });
+  return pos;
+}
+
+// ─── SALES ───────────────────────────────────────────────────────────────────
 function logSale(d) {
-  const sh = SS.getSheetByName('Sales Log');
-  const rows = d.rows || [];
-  rows.forEach(r => {
-    sh.appendRow([d.date, r.promoCode||'', r.itemName, r.variant||'', r.color||'',
-      r.qty, r.unitPrice, r.srp, r.soldPrice, r.pasaPrice||0,
-      r.discount||0, r.netSales||0, r.payment, r.soldType, r.promoter||'', r.staff]);
+  let sh = SS.getSheetByName('Sales');
+  if (!sh) return respond({error:'No Sales sheet — run Init first'});
+  const dt = new Date(d.date || Date.now());
+  const dateStr = dt.toLocaleDateString('en-PH');
+  const timeStr = dt.toLocaleTimeString('en-PH');
+  (d.rows||[]).forEach(r => {
+    sh.appendRow([r.id||'', dateStr, timeStr, r.so||'', r.bundle||'',
+      r.itemName, r.variant||'', r.color||'', r.qty,
+      r.unitPrice||0, r.srp, r.soldPrice, r.pasaPrice||0,
+      r.discount||0, r.netSales||0, r.payment, r.soldType,
+      r.promoter||'', r.staff,
+      r.isAddon?'Yes':'', r.isPromotion?'Yes':'',
+      r.customer?(r.customer.name||''):'',
+      r.customer?(r.customer.contact||''):'',
+      r.customer?(r.customer.email||''):''
+    ]);
   });
-  return respond({status:'Sale logged', count: rows.length});
+  return respond({status:'Sale logged', count:(d.rows||[]).length});
 }
 
-function logPO(d) {
-  const sh = SS.getSheetByName('Purchase Orders');
-  const items = (d.items||[]).map(i=>i.name).join(', ');
-  const qtys  = (d.items||[]).map(i=>i.qty).join(', ');
-  sh.appendRow([d.id, d.date, d.supplier, items, qtys, d.status||'Pending', d.approver]);
-  return respond({status:'PO logged'});
-}
-
-function pushInventory(d) {
-  const sh = SS.getSheetByName('Inventory');
-  if (!sh) return respond({error:'No Inventory sheet'});
-  // Clear existing data (except header)
-  if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow()-1);
+// ─── PRODUCTS ────────────────────────────────────────────────────────────────
+function saveProducts(d) {
+  const sh = getOrCreateSheet('Products', ['ProductKey','Category','Name','RAM','Storage','Colors','UnitPrice','SRP','Status']);
+  clearData(sh);
   (d.rows||[]).forEach(r => sh.appendRow(r));
-  return respond({status:'Pushed', count:(d.rows||[]).length});
+  return respond({status:'Products saved', count:(d.rows||[]).length});
 }
 
-function pushMasterList(d) {
-  let sh = SS.getSheetByName('Master List');
-  if (!sh) {
-    sh = SS.insertSheet('Master List');
-    sh.appendRow(['Category','Model','RAM','Storage','Colors','Unit Price','SRP','Status']);
-    sh.getRange(1,1,1,8).setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
-  }
-  if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow()-1);
-  (d.rows||[]).forEach(r => sh.appendRow(r));
-  return respond({status:'Master List pushed', count:(d.rows||[]).length});
+// ─── INVENTORY ───────────────────────────────────────────────────────────────
+function saveInventory(d) {
+  const sh = getOrCreateSheet('Inventory', ['ProductKey','Stock','ReorderPoint','LastUpdated']);
+  clearData(sh);
+  const now = new Date().toLocaleString('en-PH');
+  (d.rows||[]).forEach(r => sh.appendRow([r.productKey, r.stock, r.reorder||1, now]));
+  return respond({status:'Inventory saved'});
 }
 
-function getInventory() {
+function updateInventoryItems(d) {
   const sh = SS.getSheetByName('Inventory');
   if (!sh) return respond({error:'No Inventory sheet'});
   const data = sh.getDataRange().getValues();
-  if (data.length < 2) return respond({rows:[]});
-  const rows = data.slice(1).map(row => {
-    const name = String(row[1]||'');
-    const ram = String(row[2]||'');
-    const storage = String(row[3]||'');
-    const key = name + (ram?' '+ram:'') + (storage?'/'+storage:'');
-    return {key:key.trim(), stock:Number(row[7])||0};
-  }).filter(r => r.key);
-  return respond({rows});
-}
-
-function decrementStock(d) {
-  const sh = SS.getSheetByName('Inventory');
-  if (!sh) return respond({error:'No Inventory sheet'});
-  const data = sh.getDataRange().getValues();
+  const now = new Date().toLocaleString('en-PH');
   (d.items||[]).forEach(item => {
+    let found = false;
     for (let i = 1; i < data.length; i++) {
-      const k = String(data[i][1])+(data[i][2]?' '+data[i][2]:'')+(data[i][3]?'/'+data[i][3]:'');
-      if (k.trim() === (item.productKey||'').trim()) {
-        const newStock = Math.max(0, Number(data[i][7]) - item.qty);
-        sh.getRange(i+1,8).setValue(newStock);
-        data[i][7] = newStock;
-        break;
+      if (String(data[i][0]).trim() === String(item.productKey).trim()) {
+        sh.getRange(i+1,2).setValue(item.stock);
+        sh.getRange(i+1,4).setValue(now);
+        found = true; break;
       }
     }
+    if (!found) sh.appendRow([item.productKey, item.stock, item.reorder||1, now]);
   });
   return respond({status:'ok'});
 }
 
+// ─── PURCHASE ORDERS ─────────────────────────────────────────────────────────
+function savePO(d) {
+  const posh = getOrCreateSheet('Purchase_Orders', ['POID','Date','Supplier','Approver','Status']);
+  const poish = getOrCreateSheet('PO_Items', ['POID','ItemName','Qty','Color']);
+  const poData = posh.getDataRange().getValues();
+  let poRow = -1;
+  for (let i = 1; i < poData.length; i++) {
+    if (String(poData[i][0]) === String(d.id)) { poRow = i + 1; break; }
+  }
+  const row = [d.id, d.date, d.supplier, d.approver, d.status||'pending'];
+  if (poRow > 0) posh.getRange(poRow,1,1,5).setValues([row]); else posh.appendRow(row);
+  const iData = poish.getDataRange().getValues();
+  const toDelete = [];
+  for (let i = iData.length - 1; i >= 1; i--) {
+    if (String(iData[i][0]) === String(d.id)) toDelete.push(i + 1);
+  }
+  toDelete.forEach(r => poish.deleteRow(r));
+  (d.items||[]).forEach(item => poish.appendRow([d.id, item.name, item.qty, item.color||'Assorted']));
+  return respond({status:'PO saved'});
+}
+
+function updatePOStatus(d) {
+  const sh = SS.getSheetByName('Purchase_Orders');
+  if (!sh) return respond({error:'No Purchase_Orders sheet'});
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.id)) { sh.getRange(i+1,5).setValue(d.status); return respond({status:'ok'}); }
+  }
+  return respond({error:'PO not found'});
+}
+
+// ─── PROMOTIONS ──────────────────────────────────────────────────────────────
+function savePromotions(d) {
+  const sh = getOrCreateSheet('Promotions', ['BundleID','Name','Price','MainProductKey','MainProductName','AddonProductKey','AddonProductName']);
+  clearData(sh);
+  (d.bundles||[]).forEach(b => sh.appendRow([b.id, b.name, b.price, b.mainKey, b.mainName, b.addonKey, b.addonName]));
+  return respond({status:'Promotions saved'});
+}
+
+// ─── FREEBIES ────────────────────────────────────────────────────────────────
+function saveFreebies(d) {
+  const sh = getOrCreateSheet('Freebies', ['MainProductKey','FreebieProductKey','MainProductName','FreebieName']);
+  clearData(sh);
+  (d.freebies||[]).forEach(f => sh.appendRow([f.mainKey, f.freebieKey, f.mainName||'', f.freebieName||'']));
+  return respond({status:'Freebies saved'});
+}
+
+// ─── SETTINGS ────────────────────────────────────────────────────────────────
+function saveSettings(d) {
+  const sh = getOrCreateSheet('Settings', ['Key','Value']);
+  clearData(sh);
+  Object.entries(d.settings||{}).forEach(([k,v]) => sh.appendRow([k,v]));
+  return respond({status:'Settings saved'});
+}
+
+// ─── ADMIN PIN ───────────────────────────────────────────────────────────────
 function pinHash(pin) {
   const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(pin), Utilities.Charset.UTF_8);
   return bytes.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
 }
-
 function getStoredPinHash() {
   const props = PropertiesService.getScriptProperties();
   let h = props.getProperty('ADMIN_PIN_HASH');
-  if (!h) {
-    h = pinHash('1234');
-    props.setProperty('ADMIN_PIN_HASH', h);
-  }
+  if (!h) { h = pinHash('1234'); props.setProperty('ADMIN_PIN_HASH', h); }
   return h;
 }
-
-function verifyPin(d) {
-  const entered = pinHash(d.pin || '');
-  return respond({ valid: entered === getStoredPinHash() });
-}
-
+function verifyPin(d) { return respond({valid: pinHash(d.pin||'') === getStoredPinHash()}); }
 function setPin(d) {
-  const currentHash = pinHash(d.current || '');
-  if (currentHash !== getStoredPinHash()) return respond({ error: 'Incorrect current PIN' });
-  const next = String(d.next || '');
-  if (next.length < 4) return respond({ error: 'PIN must be at least 4 digits' });
+  if (pinHash(d.current||'') !== getStoredPinHash()) return respond({error:'Incorrect current PIN'});
+  const next = String(d.next||'');
+  if (next.length < 4) return respond({error:'PIN must be at least 4 digits'});
   PropertiesService.getScriptProperties().setProperty('ADMIN_PIN_HASH', pinHash(next));
-  return respond({ status: 'ok' });
+  return respond({status:'ok'});
 }
 
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 function respond(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+}
+function getOrCreateSheet(name, headers) {
+  let sh = SS.getSheetByName(name);
+  if (!sh) {
+    sh = SS.insertSheet(name);
+    sh.appendRow(headers);
+    sh.getRange(1,1,1,headers.length).setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
+  }
+  return sh;
+}
+function clearData(sh) {
+  if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
 }</span></div>
   </div>
   <div class="card">
@@ -655,7 +733,7 @@ function respond(data) {
     <div style="display:flex;gap:10px;margin-bottom:10px;"><input type="url" id="scriptUrl" placeholder="https://script.google.com/macros/s/..." style="flex:1;"><button class="btn btn-primary" onclick="connectSheet()">Connect</button></div>
     <div id="connectStatus" style="font-size:13px;color:var(--muted);"></div>
   </div>
-  <div class="card"><div class="stepb">4</div><h3>Push Master List</h3><p style="font-size:13px;color:var(--muted);margin-bottom:12px;">One-time push of all products to the Inventory sheet.</p><button class="btn btn-success" onclick="pushInventory()"><svg class="ic" aria-hidden="true"><use href="#ic-upload"/></svg> Push Master List</button><span id="pushStatus" style="margin-left:12px;font-size:13px;color:var(--muted);"></span></div>
+  <div class="card"><div class="stepb">4</div><h3>Push All Data to Sheets</h3><p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Pushes all local data (products, inventory, promotions, freebies, settings) to Google Sheets. Use this for the initial setup or to force a full overwrite.</p><button class="btn btn-success" onclick="pushInventory()"><svg class="ic" aria-hidden="true"><use href="#ic-upload"/></svg> Push All Data</button><span id="pushStatus" style="margin-left:12px;font-size:13px;color:var(--muted);"></span></div>
 </div>
 
 <div class="toast" id="toast"></div>

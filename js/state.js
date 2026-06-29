@@ -19,6 +19,7 @@ export const state = {
   purchaseOrders: JSON.parse(localStorage.getItem('kt_pos') || '[]'),
   scriptUrl: localStorage.getItem('kt_url') || '',
   editingPOId: null,
+  syncQueue: [],
 };
 
 export function saveInv() {

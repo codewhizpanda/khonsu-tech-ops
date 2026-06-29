@@ -7,12 +7,14 @@ import { renderML } from './master-list.js';
 import { renderSettings } from './settings.js';
 import { renderSalesTable, renderSummary } from './report.js';
 import { buildCatFilter, renderProducts } from './products.js';
+import { getQueue, updateBanner } from './sync.js';
 
 // Side-effect imports to register window.* handlers not reachable via above imports
 import './auth.js';
 import './customer.js';
 import './sales.js';
 import './setup.js';
+import './sync.js';
 
 function init() {
   const saved = localStorage.getItem('kt_ml');
@@ -46,6 +48,10 @@ function init() {
     const el = document.getElementById('scriptUrl');
     if (el) el.value = state.scriptUrl;
   }
+
+  // Restore sync queue from localStorage
+  state.syncQueue = getQueue();
+  updateBanner();
 
   // Keep window.masterList in sync after reassignment (used by inline oninput handlers in renderML)
   window.masterList = state.masterList;

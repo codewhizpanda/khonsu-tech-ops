@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { toast } from './toast.js';
+import { tryPush } from './sync.js';
 
 export function generatePO(items) {
   let po = state.purchaseOrders.find(p => p.status === 'pending');
@@ -21,13 +22,7 @@ export function generatePO(items) {
     state.purchaseOrders.unshift(po);
   }
   localStorage.setItem('kt_pos', JSON.stringify(state.purchaseOrders));
-  if (state.scriptUrl) {
-    fetch(state.scriptUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'logPO', ...po }),
-    }).catch(() => {});
-  }
+  tryPush('savePO', { id: po.id, date: po.date, supplier: po.supplier, approver: po.approver, status: po.status, items: po.items });
   renderPOs();
 }
 
@@ -78,6 +73,7 @@ export function markSent(id) {
   if (po) {
     po.status = 'sent';
     localStorage.setItem('kt_pos', JSON.stringify(state.purchaseOrders));
+    tryPush('updatePOStatus', { id: po.id, status: 'sent' });
     renderPOs();
     toast('PO marked as sent', 'success');
   }
@@ -150,14 +146,9 @@ export function addPOLineItem() {
 }
 
 export function savePOEdit() {
+  const po = state.purchaseOrders.find(p => p.id === state.editingPOId);
   localStorage.setItem('kt_pos', JSON.stringify(state.purchaseOrders));
-  if (state.scriptUrl) {
-    fetch(state.scriptUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'logPO', ...state.purchaseOrders.find(p => p.id === state.editingPOId) }),
-    }).catch(() => {});
-  }
+  if (po) tryPush('savePO', { id: po.id, date: po.date, supplier: po.supplier, approver: po.approver, status: po.status, items: po.items });
   closePOEdit();
   renderPOs();
   toast('PO updated!', 'success');

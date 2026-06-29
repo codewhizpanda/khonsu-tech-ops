@@ -4,6 +4,7 @@ import { toast } from './toast.js';
 import { renderInv } from './inventory.js';
 import { buildCatFilter, renderProducts } from './products.js';
 import { COLORS } from './data.js';
+import { tryPush } from './sync.js';
 
 export function renderML() {
   const q = (document.getElementById('mlSearch') || { value: '' }).value.toLowerCase();
@@ -75,6 +76,15 @@ export function openFreebieModal() {
   document.getElementById('freebieModal').style.display = 'flex';
 }
 
+function pushFreebies() {
+  const freebies = Object.entries(state.productFreebies).map(([mainKey, freebieKey]) => {
+    const mainP = state.masterList.find(p => ik(p) === mainKey);
+    const fbP = state.masterList.find(p => ik(p) === freebieKey);
+    return { mainKey, freebieKey, mainName: mainP ? mainP.name : '', freebieName: fbP ? fbP.name : '' };
+  });
+  tryPush('saveFreebies', { freebies });
+}
+
 export function saveFreebie() {
   const mainKey = document.getElementById('fr-main').value;
   const addonKey = document.getElementById('fr-addon').value;
@@ -82,6 +92,7 @@ export function saveFreebie() {
   if (!addonKey) { toast('Select a freebie item', 'error'); return; }
   state.productFreebies[mainKey] = addonKey;
   localStorage.setItem('kt_freebies', JSON.stringify(state.productFreebies));
+  pushFreebies();
   document.getElementById('freebieModal').style.display = 'none';
   renderFreebieList();
   toast('Freebie saved!', 'success');
@@ -90,6 +101,7 @@ export function saveFreebie() {
 export function deleteFreebie(mainKey) {
   delete state.productFreebies[mainKey];
   localStorage.setItem('kt_freebies', JSON.stringify(state.productFreebies));
+  pushFreebies();
   renderFreebieList();
   toast('Freebie removed', 'success');
 }
@@ -133,6 +145,10 @@ export function closeNewBundleModal() {
   document.getElementById('newBundleModal').style.display = 'none';
 }
 
+function pushBundles() {
+  tryPush('savePromotions', { bundles: state.predefinedBundles });
+}
+
 export function saveNewBundle() {
   const name = document.getElementById('nb-name').value.trim();
   const price = parseFloat(document.getElementById('nb-price').value) || 0;
@@ -153,6 +169,7 @@ export function saveNewBundle() {
   };
   state.predefinedBundles.push(bundle);
   localStorage.setItem('kt_bundles', JSON.stringify(state.predefinedBundles));
+  pushBundles();
   closeNewBundleModal();
   renderBundleList();
   renderProducts();
@@ -162,6 +179,7 @@ export function saveNewBundle() {
 export function deleteBundle(id) {
   state.predefinedBundles = state.predefinedBundles.filter(b => b.id !== id);
   localStorage.setItem('kt_bundles', JSON.stringify(state.predefinedBundles));
+  pushBundles();
   renderBundleList();
   renderProducts();
   toast('Promotion deleted', 'success');
@@ -196,25 +214,21 @@ export function saveMasterList() {
   saveInv();
   buildCatFilter();
   renderProducts();
-  if (state.scriptUrl) pushMLtoSheet();
-  toast('Master list saved!', 'success');
-}
 
-export async function pushMLtoSheet() {
-  try {
-    const rows = state.masterList.map(p => [
-      p.category, p.name, p.ram || '', p.storage || '', p.colors || '',
-      p.unitPrice, p.srp, (state.inventory[ik(p)] || {}).stock || 0, 1,
-      p.obsolete ? 'Obsolete' : 'Active',
-    ]);
-    await fetch(state.scriptUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'pushMasterList', rows }),
-    });
-  } catch (e) {
-    console.warn('ML sheet sync error', e.message);
-  }
+  const productRows = state.masterList.map(p => [
+    ik(p), p.category, p.name, p.ram || '', p.storage || '',
+    p.colors || '', p.unitPrice, p.srp, p.obsolete ? 'Obsolete' : 'Active',
+  ]);
+  tryPush('saveProducts', { rows: productRows });
+
+  const inventoryRows = state.masterList.map(p => ({
+    productKey: ik(p),
+    stock: (state.inventory[ik(p)] || {}).stock || 0,
+    reorder: (state.inventory[ik(p)] || {}).reorder || 1,
+  }));
+  tryPush('saveInventory', { rows: inventoryRows });
+
+  toast('Master list saved!', 'success');
 }
 
 window.masterList = state.masterList;

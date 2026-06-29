@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { toast } from './toast.js';
 import { buildCatFilter, renderProducts } from './products.js';
-import { syncPricingFromSheet, syncInventoryFromSheet } from './setup.js';
+import { pullFromSheets, getQueue } from './sync.js';
 import { showPage, showS } from './nav.js';
 
 // SHA-256 of "1234" — used only when no Apps Script is connected yet
@@ -24,8 +24,9 @@ export function login(user) {
   renderProducts();
   if (state.scriptUrl) {
     setTimeout(() => {
-      syncPricingFromSheet().catch(() => {});
-      syncInventoryFromSheet().catch(() => {});
+      if (!getQueue().length) {
+        pullFromSheets().catch(() => {});
+      }
     }, 800);
   }
   toast('Welcome, ' + user + '!', 'success');

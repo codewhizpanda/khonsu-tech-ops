@@ -4,6 +4,7 @@ import { toast } from './toast.js';
 import { generatePO } from './purchase-orders.js';
 import { renderInv } from './inventory.js';
 import { showS } from './nav.js';
+import { processQueue, getQueue } from './sync.js';
 
 export function renderSalesTable() {
   const body = document.getElementById('salesBody');
@@ -106,21 +107,9 @@ export function removeRow(id) {
 
 export async function submitDayReport() {
   if (!state.saleRows.length) { toast('No transactions to submit', 'error'); return; }
-  if (state.scriptUrl) {
-    try {
-      const res = await fetch(state.scriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'logSale', date: new Date().toISOString(), rows: state.saleRows }),
-      });
-      const data = await res.json();
-      console.log('logSale:', data);
-      toast('Submitted to Google Sheets!', 'success');
-    } catch (e) {
-      console.warn('Sheet error:', e.message);
-      toast('Submitted locally (Sheet sync: check CORS settings)', 'success');
-    }
-  } else {
+  if (getQueue().length > 0 && state.scriptUrl) {
+    await processQueue();
+  } else if (!state.scriptUrl) {
     toast('No sheet connected — data saved locally', 'success');
   }
   const low = [];

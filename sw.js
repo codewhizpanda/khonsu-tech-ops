@@ -1,4 +1,4 @@
-const CACHE = 'khonsu-ops-v2';
+const CACHE = 'khonsu-ops-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS = [
   './js/state.js',
   './js/data.js',
   './js/utils.js',
+  './js/sync.js',
   './js/auth.js',
   './js/nav.js',
   './js/toast.js',

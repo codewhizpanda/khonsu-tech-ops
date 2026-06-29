@@ -7,7 +7,7 @@ import { showS } from './nav.js';
 import { openDetail } from './products.js';
 import { renderSalesTable, renderSummary } from './report.js';
 import { getCustomerInfo, resetCustomerInfo } from './customer.js';
-import { pushStockDecrement } from './setup.js';
+import { tryPush } from './sync.js';
 
 export function buildPendingItem() {
   if (!state.selectedProduct) return null;
@@ -224,6 +224,7 @@ export function confirmSale() {
   const so = getOrCreateSO();
   const now = Date.now();
   const decrements = [];
+  const rowStart = state.saleRows.length;
 
   state.pendingItems.forEach((item, i) => {
     const p = item.product;
@@ -288,7 +289,19 @@ export function confirmSale() {
   });
 
   saveInv();
-  if (state.scriptUrl && decrements.length) pushStockDecrement(decrements).catch(() => {});
+
+  const newRows = state.saleRows.slice(rowStart);
+  tryPush('logSale', { date: new Date().toISOString(), rows: newRows });
+  if (decrements.length) {
+    tryPush('updateInventoryItems', {
+      items: decrements.map(d => ({
+        productKey: d.productKey,
+        stock: (state.inventory[d.productKey] || {}).stock || 0,
+        reorder: (state.inventory[d.productKey] || {}).reorder || 1,
+      })),
+    });
+  }
+
   state.pendingItems = [];
   resetCustomerInfo();
   state.currentSO = null;

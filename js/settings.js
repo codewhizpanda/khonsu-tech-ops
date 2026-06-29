@@ -1,6 +1,7 @@
 import { state, saveInv } from './state.js';
 import { ik, vl } from './utils.js';
 import { toast } from './toast.js';
+import { tryPush } from './sync.js';
 
 export function renderSettings() {
   document.getElementById('set-target').value = state.settings.dailyTarget;
@@ -44,6 +45,13 @@ export function saveSettings() {
   state.settings.globalReorder = parseInt(document.getElementById('set-reorder').value) || 1;
   localStorage.setItem('kt_settings', JSON.stringify(state.settings));
   saveInv();
+  tryPush('saveSettings', {
+    settings: {
+      DailyTarget: state.settings.dailyTarget,
+      LowStockThreshold: state.settings.lowStockThreshold,
+      GlobalReorder: state.settings.globalReorder,
+    },
+  });
   toast('Settings saved!', 'success');
 }
 
