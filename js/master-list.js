@@ -109,7 +109,7 @@ export function renderFreebieList() {
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;margin-bottom:8px;">
       <div>
         <div style="font-size:13px;font-weight:600;color:var(--accent);">${mainP.name}${vl(mainP) ? ' (' + vl(mainP) + ')' : ''}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px;">🎁 ${addonP.name}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:4px;"><svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use href="#ic-gift"/></svg>${addonP.name}</div>
       </div>
       <span data-fk="${encodeURIComponent(mk)}" onclick="deleteFreebie(decodeURIComponent(this.dataset.fk))"
         style="cursor:pointer;color:var(--muted);font-size:16px;">✕</span>

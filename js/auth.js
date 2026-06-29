@@ -15,7 +15,7 @@ async function localHash(pin) {
 export function login(user) {
   state.currentUser = user;
   document.getElementById('lockScreen').style.display = 'none';
-  document.getElementById('userPill').textContent = '👤 ' + user + ' — Switch';
+  document.getElementById('userPill').innerHTML = '<svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em;" aria-hidden="true"><use href="#ic-user"/></svg> ' + user + ' — Switch';
   const adminTabs = ['tab-inventory', 'tab-po', 'tab-ml', 'tab-settings', 'tab-setup'];
   adminTabs.forEach(id => {
     document.getElementById(id).style.display = user === 'Admin' ? '' : 'none';
@@ -87,7 +87,15 @@ export async function submitAdminPin() {
       input.focus();
     }
   } catch (e) {
-    errorEl.textContent = 'Could not reach server. Check your connection.';
+    // Server unreachable — fall back to local default PIN so offline testing works
+    const localValid = (await localHash(pin)) === DEFAULT_PIN_HASH;
+    if (localValid) {
+      closePinModal();
+      login('Admin');
+      toast('Server unreachable — logged in with offline PIN', 'success');
+    } else {
+      errorEl.textContent = 'Server unreachable. Try the default PIN (1234) or check connection.';
+    }
     console.error(e);
   } finally {
     unlockBtn.textContent = 'Unlock';

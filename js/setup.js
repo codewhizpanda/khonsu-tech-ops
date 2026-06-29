@@ -42,10 +42,10 @@ export async function syncPricingFromSheet() {
     state.PRODUCTS = state.masterList.filter(p => !p.obsolete);
     buildCatFilter();
     renderProducts();
-    if (statusEl) statusEl.textContent = '✅ ' + updated + ' products updated from sheet';
-    toast('✅ Pricing synced — ' + updated + ' products updated', 'success');
+    if (statusEl) statusEl.textContent = updated + ' products updated from sheet';
+    toast('Pricing synced — ' + updated + ' products updated', 'success');
   } catch (e) {
-    if (statusEl) statusEl.textContent = '⚠️ Sync failed (CORS? Check sheet URL)';
+    if (statusEl) statusEl.textContent = 'Sync failed — check sheet URL and CORS settings';
     toast('Sync failed: ' + e.message, 'error');
     console.error(e);
   }
@@ -63,10 +63,10 @@ export async function connectSheet() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'init' }),
     });
-    document.getElementById('connectStatus').textContent = '✅ Connected and sheets initialized!';
+    document.getElementById('connectStatus').textContent = 'Connected and sheets initialized!';
     toast('Connected!', 'success');
   } catch (e) {
-    document.getElementById('connectStatus').textContent = '✅ URL saved. (CORS in preview is normal — deployed app will work fine.)';
+    document.getElementById('connectStatus').textContent = 'URL saved. (CORS in preview is normal — deployed app will work fine.)';
     toast('URL saved', 'success');
   }
 }
@@ -84,10 +84,10 @@ export async function pushInventory() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'pushInventory', rows }),
     });
-    document.getElementById('pushStatus').textContent = '✅ Done!';
+    document.getElementById('pushStatus').textContent = 'Done!';
     toast('Master list pushed!', 'success');
   } catch (e) {
-    document.getElementById('pushStatus').textContent = '✅ Sent (check your sheet)';
+    document.getElementById('pushStatus').textContent = 'Sent (check your sheet)';
     toast('Pushed', 'success');
   }
 }

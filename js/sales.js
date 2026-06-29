@@ -64,7 +64,7 @@ export function addAnotherItem() {
   const item = buildPendingItem();
   if (!item) return;
   state.pendingItems.push(item);
-  toast('✅ ' + item.product.name + ' added — select next item', 'success');
+  toast(item.product.name + ' added — select next item', 'success');
   state.selectedProduct = null;
   state.selectedAddon = null;
   showS('picker');
@@ -112,9 +112,9 @@ export function renderReview() {
   html += '</div>';
   if (custInfo) {
     html += '<div style="border-top:1px solid rgba(255,255,255,.2);padding-top:8px;margin-top:4px;font-size:12px;opacity:.85;">';
-    if (custInfo.name) html += '👤 ' + custInfo.name + '&nbsp;&nbsp;';
-    if (custInfo.contact) html += '📞 ' + custInfo.contact + '&nbsp;&nbsp;';
-    if (custInfo.email) html += '✉️ ' + custInfo.email;
+    if (custInfo.name) html += `<svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.1em;" aria-hidden="true"><use href="#ic-user"/></svg> ` + custInfo.name + '&nbsp;&nbsp;';
+    if (custInfo.contact) html += `<svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.1em;" aria-hidden="true"><use href="#ic-phone"/></svg> ` + custInfo.contact + '&nbsp;&nbsp;';
+    if (custInfo.email) html += `<svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.1em;" aria-hidden="true"><use href="#ic-mail"/></svg> ` + custInfo.email;
     html += '</div>';
   }
   html += '</div>';
@@ -129,7 +129,7 @@ export function renderReview() {
     html += `<div><div style="font-weight:700;font-size:14px;">${item.product.name}</div>
       <div style="font-size:11px;color:var(--muted);">${item.product.category}${vl(item.product) ? ' — ' + vl(item.product) : ''}</div></div></div>`;
     html += `<div style="display:flex;gap:6px;">
-      <button class="btn btn-outline btn-sm" onclick="editPendingItem(${idx})" style="padding:4px 10px;font-size:11px;">✏️</button>
+      <button class="btn btn-outline btn-sm" onclick="editPendingItem(${idx})" style="padding:4px 10px;font-size:11px;display:inline-flex;align-items:center;"><svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-edit"/></svg></button>
       <button class="btn btn-ghost btn-sm" onclick="removePendingItem(${idx})" style="padding:4px 8px;font-size:13px;color:var(--red);">✕</button>
     </div>`;
     html += '</div>';
@@ -140,10 +140,10 @@ export function renderReview() {
     html += `<div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Price</div><div style="font-size:13px;font-weight:700;color:var(--accent);font-family:monospace;">${fmt(item.sp)}</div></div>`;
     html += '</div>';
     if (item.bundleCode) html += `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${item.isPromo ? 'Promo' : 'Bundle'} Code: <span style="font-family:monospace;font-weight:600;color:var(--accent);">${item.bundleCode}</span></div>`;
-    if (item.addon) html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--accent-light);border-radius:8px;margin-bottom:8px;"><span>➕</span><div style="flex:1;font-size:13px;font-weight:600;">${item.addon.product.name}</div><div style="font-size:13px;font-weight:700;color:var(--accent);font-family:monospace;">₱${item.addon.soldPrice.toLocaleString()}</div></div>`;
+    if (item.addon) html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--accent-light);border-radius:8px;margin-bottom:8px;"><svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use href="#ic-plus"/></svg><div style="flex:1;font-size:13px;font-weight:600;">${item.addon.product.name}</div><div style="font-size:13px;font-weight:700;color:var(--accent);font-family:monospace;">₱${item.addon.soldPrice.toLocaleString()}</div></div>`;
     if (item.freebie || item.promoAddon) {
       const fn = (item.freebie || item.promoAddon).name;
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f0fdf4;border-radius:8px;margin-bottom:8px;"><span>🎁</span><div style="flex:1;font-size:13px;font-weight:600;color:#15803d;">${fn}</div><div style="font-size:11px;font-weight:700;color:#15803d;background:#dcfce7;padding:2px 8px;border-radius:10px;">FREE</div></div>`;
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f0fdf4;border-radius:8px;margin-bottom:8px;"><svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;color:var(--green);" aria-hidden="true"><use href="#ic-gift"/></svg><div style="flex:1;font-size:13px;font-weight:600;color:#15803d;">${fn}</div><div style="font-size:11px;font-weight:700;color:#15803d;background:#dcfce7;padding:2px 8px;border-radius:10px;">FREE</div></div>`;
     }
     html += `<div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);"><span style="font-size:13px;color:var(--muted);margin-right:10px;">Subtotal</span><span class="mono" style="font-size:15px;font-weight:700;color:var(--accent);">${fmt(itemTotal)}</span></div>`;
     html += '</div></div>';
@@ -294,7 +294,7 @@ export function confirmSale() {
   state.currentSO = null;
   document.getElementById('soBanner').style.display = 'none';
   document.getElementById('floatBtn').style.display = 'none';
-  toast('✅ Sales Order ' + so + ' confirmed!', 'success');
+  toast('Sales Order ' + so + ' confirmed!', 'success');
   showS('picker');
   renderSalesTable();
   renderSummary();

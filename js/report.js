@@ -10,7 +10,7 @@ export function renderSalesTable() {
   const foot = document.getElementById('salesFoot');
   const sum = document.getElementById('summarySection');
   if (!state.saleRows.length) {
-    body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:28px;">No transactions yet.</td></tr>';
+    body.innerHTML = '<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:28px;">No transactions yet.</td></tr>';
     foot.style.display = 'none';
     sum.style.display = 'none';
     return;
@@ -32,6 +32,7 @@ export function renderSalesTable() {
       <td style="color:var(--muted);font-size:12px;">${r.variant || '—'}</td>
       <td>${r.color || '—'}</td>
       <td class="mono">${r.qty}</td>
+      <td class="mono" style="color:var(--muted);">₱${(r.unitPrice||0).toLocaleString()}</td>
       <td class="mono">₱${r.srp.toLocaleString()}</td>
       <td class="mono" style="font-weight:700;color:var(--accent);">₱${(r.soldPrice * r.qty).toLocaleString()}</td>
       <td class="mono">${r.pasaPrice > 0 ? '₱' + r.pasaPrice.toLocaleString() : 'N/A'}</td>
@@ -39,7 +40,7 @@ export function renderSalesTable() {
       <td class="mono" style="color:var(--green);">₱${(r.netSales || 0).toLocaleString()}</td>
       <td>${r.payment}</td>
       <td>${tc}</td>
-      <td><span onclick="removeRow(${r.id})" style="cursor:pointer;color:var(--muted);font-size:16px;">✕</span></td>
+      <td><span onclick="removeRow(${r.id})" style="cursor:pointer;color:var(--muted);">✕</span></td>
     </tr>`;
   }).join('');
   document.getElementById('tot-sold').textContent = fmt(tS);
@@ -82,10 +83,10 @@ export function renderSummary() {
   const met = net >= target;
   const gap = target - net;
   document.getElementById('s-result').innerHTML = met
-    ? '<span style="color:var(--green);">✅ Target Met!</span>'
-    : `<span style="color:var(--red);">❌ Below Target</span><div style="font-size:13px;color:var(--muted);font-weight:400;margin-top:4px;">${fmt(gap)} to go</div>`;
+    ? `<span style="color:var(--green);display:flex;align-items:center;gap:6px;"><svg style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-check-circle"/></svg> Target Met!</span>`
+    : `<span style="color:var(--red);display:flex;align-items:center;gap:6px;"><svg style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-x-circle"/></svg> Below Target</span><div style="font-size:13px;color:var(--muted);font-weight:400;margin-top:4px;">${fmt(gap)} to go</div>`;
 
-  const bt = (met ? '✅ ' : '') + fmt(net) + ' / ₱' + target.toLocaleString();
+  const bt = fmt(net) + ' / ₱' + target.toLocaleString();
   const bb = met ? '#dcfce7' : '#fee2e2';
   const bc = met ? '#16a34a' : '#dc2626';
   ['targetBadge', 'targetBadge2'].forEach(id => {
@@ -162,11 +163,11 @@ export function printReport() {
   win.document.write('<h1>KHONSU ELECTRONIC GADGETS TRADING (ITEL MOBILE)</h1>');
   win.document.write('<div class="sub">Space No. K424.6 Festival Mall, FCC, Alabang, Muntinlupa City</div>');
   win.document.write(`<div style="display:flex;justify-content:space-between;margin-bottom:8px;"><div></div><div style="text-align:right;"><strong style="font-size:14px;">DAILY SALES REPORT</strong><br><span style="color:#666;">${date}</span></div></div>`);
-  win.document.write('<table><thead><tr><th>SO#</th><th>Code</th><th>Item</th><th>Variant</th><th>Color</th><th>Qty</th><th>SRP</th><th>Sold Price</th><th>Pasa</th><th>Discount</th><th>Net Sales</th><th>Payment</th><th>Walk-in</th><th>Pasa</th><th>Staff</th></tr></thead><tbody>');
+  win.document.write('<table><thead><tr><th>SO#</th><th>Code</th><th>Item</th><th>Variant</th><th>Color</th><th>Qty</th><th>Unit Price</th><th>SRP</th><th>Sold Price</th><th>Pasa</th><th>Discount</th><th>Net Sales</th><th>Payment</th><th>Walk-in</th><th>Pasa</th><th>Staff</th></tr></thead><tbody>');
   state.saleRows.forEach(r => {
-    win.document.write(`<tr><td>${r.so || '—'}</td><td>${r.bundle || '—'}</td><td>${r.itemName}</td><td>${r.variant || ''}</td><td>${r.color || ''}</td><td>${r.qty}</td><td>P ${r.srp.toLocaleString()}</td><td>P ${(r.soldPrice * r.qty).toLocaleString()}</td><td>${r.pasaPrice > 0 ? 'P ' + r.pasaPrice.toLocaleString() : 'N/A'}</td><td>${r.discount > 0 ? 'P ' + r.discount.toLocaleString() : 'N/A'}</td><td>P ${(r.netSales || 0).toLocaleString()}</td><td>${r.payment}</td><td style="text-align:center;">${r.soldType === 'Walk-in' ? '✓' : ''}</td><td style="text-align:center;">${r.soldType === 'Pasa' ? '✓ ' + (r.promoter || '') : ''}</td><td>${r.staff}</td></tr>`);
+    win.document.write(`<tr><td>${r.so || '—'}</td><td>${r.bundle || '—'}</td><td>${r.itemName}</td><td>${r.variant || ''}</td><td>${r.color || ''}</td><td>${r.qty}</td><td>P ${(r.unitPrice||0).toLocaleString()}</td><td>P ${r.srp.toLocaleString()}</td><td>P ${(r.soldPrice * r.qty).toLocaleString()}</td><td>${r.pasaPrice > 0 ? 'P ' + r.pasaPrice.toLocaleString() : 'N/A'}</td><td>${r.discount > 0 ? 'P ' + r.discount.toLocaleString() : 'N/A'}</td><td>P ${(r.netSales || 0).toLocaleString()}</td><td>${r.payment}</td><td style="text-align:center;">${r.soldType === 'Walk-in' ? '✓' : ''}</td><td style="text-align:center;">${r.soldType === 'Pasa' ? '✓ ' + (r.promoter || '') : ''}</td><td>${r.staff}</td></tr>`);
   });
-  win.document.write(`</tbody><tfoot><tr class="tf"><td colspan="7">TOTAL</td><td>P ${gross.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td><td></td><td>${disc > 0 ? 'P ' + disc.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : 'N/A'}</td><td>P ${net.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td><td colspan="4"></td></tr></tfoot></table>`);
+  win.document.write(`</tbody><tfoot><tr class="tf"><td colspan="8">TOTAL</td><td>P ${gross.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td><td></td><td>${disc > 0 ? 'P ' + disc.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : 'N/A'}</td><td>P ${net.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td><td colspan="4"></td></tr></tfoot></table>`);
   win.document.write(`<div class="grid">
     <div class="box"><h3>SALES SUMMARY</h3>
       <div class="row"><span>Gross:</span><span>P ${gross.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span></div>
@@ -182,7 +183,7 @@ export function printReport() {
       <hr style="margin:8px 0;">
       <div class="row"><strong>DAILY TARGET: ${state.settings.dailyTarget.toLocaleString()}.00 Php</strong></div>
     </div>
-    <div class="box"><h3>RESULT</h3><div style="font-size:14px;font-weight:700;">${met ? '☑ Met' : '☒ Below Target'}</div></div>
+    <div class="box"><h3>RESULT</h3><div style="font-size:14px;font-weight:700;">${met ? 'MET' : 'BELOW TARGET'}</div></div>
   </div>`);
   win.document.write(`<div class="sig"><p><strong>PREPARED BY:</strong></p><p style="margin-top:16px;">Name: ________________________________&nbsp;&nbsp;&nbsp;Date: ${date}</p><p style="margin-top:12px;">Signature: ________________________________</p></div>`);
   win.document.write('<scr' + 'ipt>window.onload=()=>window.print();<\/scr' + 'ipt></body></html>');

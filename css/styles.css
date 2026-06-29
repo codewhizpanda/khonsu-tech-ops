@@ -72,6 +72,19 @@ nav {
   box-shadow: 0 1px 4px rgba(27, 46, 107, .06);
 }
 
+.ic {
+  width: 1em;
+  height: 1em;
+  vertical-align: -.125em;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: inline-block;
+}
+
 .tab {
   padding: 8px 18px;
   border-radius: 8px;
@@ -82,6 +95,9 @@ nav {
   background: transparent;
   color: var(--muted);
   transition: all .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .tab:hover { color: var(--accent); background: var(--accent-light); }
 .tab.active { background: var(--accent); color: #fff; }
@@ -178,9 +194,13 @@ input[readonly] { background: var(--surface2); color: var(--muted); cursor: defa
   top: 50%;
   transform: translateY(-50%);
   color: var(--muted);
-  font-size: 14px;
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  width: 16px;
+  height: 16px;
 }
+.si .ic { width: 16px; height: 16px; }
 
 .pgrid {
   display: grid;
@@ -309,7 +329,13 @@ tr:hover td { background: var(--accent-light); }
   cursor: pointer;
   transition: all .2s;
   font-family: 'Inter', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
+.btn-ghost { background: transparent; color: var(--accent); }
+.btn-ghost:hover { background: var(--accent-light); }
 .ubtn:hover { background: rgba(255, 255, 255, .18); border-color: rgba(200, 208, 232, .5); }
 .ubtn.admin { border-color: rgba(200, 208, 232, .5); background: rgba(200, 208, 232, .1); }
 

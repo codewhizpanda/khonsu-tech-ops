@@ -48,7 +48,7 @@ export function renderPOs() {
             <strong style="color:var(--text);">Approver:</strong> ${po.approver}
           </div>
         </div>
-        <span class="badge ${po.status === 'sent' ? 'bg' : 'by'}">${po.status === 'sent' ? '✓ Sent' : '⏳ Pending'}</span>
+        <span class="badge ${po.status === 'sent' ? 'bg' : 'by'}" style="display:inline-flex;align-items:center;gap:4px;">${po.status === 'sent' ? '<svg style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-check"/></svg> Sent' : '<svg style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-clock"/></svg> Pending'}</span>
       </div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
         <thead><tr>
@@ -66,9 +66,9 @@ export function renderPOs() {
       </table>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         ${po.status === 'pending' ? `
-          <button class="btn btn-outline btn-sm" onclick="openPOEdit('${po.id}')">✏️ Edit</button>
+          <button class="btn btn-outline btn-sm" onclick="openPOEdit('${po.id}')" style="display:inline-flex;align-items:center;gap:4px;"><svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-edit"/></svg> Edit</button>
           <button class="btn btn-success btn-sm" onclick="markSent('${po.id}')">✓ Mark as Sent</button>` : ''}
-        <button class="btn btn-outline btn-sm" onclick="printPO('${po.id}')">🖨 Print</button>
+        <button class="btn btn-outline btn-sm" onclick="printPO('${po.id}')" style="display:inline-flex;align-items:center;gap:4px;"><svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-printer"/></svg> Print</button>
       </div>
     </div>`).join('');
 }

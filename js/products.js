@@ -39,7 +39,7 @@ export function renderProducts() {
         <div class="sb ${isOut ? 'sout' : 'sok'}">${isOut ? 'OUT' : 'In Stock'}</div>
         <div class="cl">Promotion</div>
         <div class="pn">${b.name}</div>
-        <div class="pv" style="font-size:11px;line-height:1.5;margin-bottom:6px;">📱 ${b.mainName}<br>🎧 ${b.addonName}</div>
+        <div class="pv" style="font-size:11px;line-height:1.7;margin-bottom:6px;"><span style="font-weight:600;color:var(--accent2);">Phone:</span> ${b.mainName}<br><span style="font-weight:600;color:var(--accent2);">Accessory:</span> ${b.addonName}</div>
         <div class="pp">₱${b.price.toLocaleString()}</div>
       </div>`;
     }).join('') || '<div style="padding:40px;text-align:center;color:var(--muted);">No promotions defined. Create one in Master List.</div>';
@@ -90,13 +90,13 @@ function _updateFloatBtn() {
   if (totalPending > 0) {
     fb.style.display = 'block';
     if (fbBtn) {
-      fbBtn.textContent = '🛒 Review (' + totalPending + ' item' + (totalPending !== 1 ? 's' : '') + ')';
+      fbBtn.innerHTML = '<svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em;" aria-hidden="true"><use href="#ic-cart"/></svg> Review (' + totalPending + ' item' + (totalPending !== 1 ? 's' : '') + ')';
       fbBtn.onclick = () => window.goToReview();
     }
   } else if (state.saleRows.length > 0) {
     fb.style.display = 'block';
     if (fbBtn) {
-      fbBtn.textContent = '📋 View Report (' + state.saleRows.length + ')';
+      fbBtn.innerHTML = '<svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em;" aria-hidden="true"><use href="#ic-clipboard"/></svg> View Report (' + state.saleRows.length + ')';
       fbBtn.onclick = () => showS('report');
     }
   } else {

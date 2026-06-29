@@ -16,15 +16,46 @@
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+
+<!-- SVG icon sprite -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+  <symbol id="ic-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="ic-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></symbol>
+  <symbol id="ic-cart" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></symbol>
+  <symbol id="ic-box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></symbol>
+  <symbol id="ic-clipboard" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></symbol>
+  <symbol id="ic-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+  <symbol id="ic-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="ic-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+  <symbol id="ic-receipt" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/></symbol>
+  <symbol id="ic-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+  <symbol id="ic-gift" viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></symbol>
+  <symbol id="ic-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
+  <symbol id="ic-chart" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></symbol>
+  <symbol id="ic-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="ic-upload" viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></symbol>
+  <symbol id="ic-printer" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+  <symbol id="ic-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="ic-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+  <symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="ic-check-circle" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+  <symbol id="ic-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></symbol>
+  <symbol id="ic-mail" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></symbol>
+  <symbol id="ic-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+</svg>
+
 <div id="lockScreen">
   <div class="lc">
-    <div class="ll">🌕 Khonsu <span>Tech</span></div>
+    <div class="ll"><svg class="ic" style="width:22px;height:22px;" aria-hidden="true"><use href="#ic-moon"/></svg> Khonsu <span>Tech</span></div>
     <div class="ls">Sales Operations System</div>
     <div class="llabel">Who's accessing?</div>
     <div class="ubtns">
-      <button class="ubtn" onclick="login('Sam')">👤 Sam</button>
-      <button class="ubtn" onclick="login('Joyce')">👤 Joyce</button>
-      <button class="ubtn admin" onclick="promptAdminPin()">🔑 Admin</button>
+      <button class="ubtn" onclick="login('Sam')"><svg class="ic" aria-hidden="true"><use href="#ic-user"/></svg> Sam</button>
+      <button class="ubtn" onclick="login('Joyce')"><svg class="ic" aria-hidden="true"><use href="#ic-user"/></svg> Joyce</button>
+      <button class="ubtn admin" onclick="promptAdminPin()"><svg class="ic" aria-hidden="true"><use href="#ic-key"/></svg> Admin</button>
     </div>
   </div>
 </div>
@@ -32,7 +63,7 @@
 <!-- Admin PIN modal -->
 <div id="pinModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);align-items:center;justify-content:center;">
   <div style="background:var(--surface);border-radius:16px;padding:32px 28px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.4);text-align:center;">
-    <div style="font-size:28px;margin-bottom:8px;">🔑</div>
+    <div style="margin-bottom:12px;color:var(--accent);"><svg style="width:32px;height:32px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-key"/></svg></div>
     <div style="font-weight:700;font-size:16px;margin-bottom:4px;">Admin Access</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">Enter your PIN to continue</div>
     <input id="pinInput" type="password" inputmode="numeric" maxlength="8" placeholder="••••"
@@ -46,16 +77,16 @@
   </div>
 </div>
 <header>
-  <div class="logo">🌕 Khonsu <span>Tech</span></div>
+  <div class="logo"><svg class="ic" style="width:20px;height:20px;" aria-hidden="true"><use href="#ic-moon"/></svg> Khonsu <span>Tech</span></div>
   <div class="user-pill" id="userPill" onclick="logout()">— Switch User</div>
 </header>
 <nav>
-  <button class="tab active" onclick="showPage('sales',event)">🛒 Log Sale</button>
-  <button class="tab" id="tab-inventory" onclick="showPage('inventory',event)">📦 Inventory</button>
-  <button class="tab" id="tab-po" onclick="showPage('po',event)">📋 Purchase Orders</button>
-  <button class="tab" id="tab-ml" onclick="showPage('masterlist',event)">📝 Master List</button>
-  <button class="tab" id="tab-settings" onclick="showPage('settings',event)">🔧 Settings</button>
-  <button class="tab" id="tab-setup" onclick="showPage('setup',event)">⚙️ Setup</button>
+  <button class="tab active" onclick="showPage('sales',event)"><svg class="ic" aria-hidden="true"><use href="#ic-cart"/></svg> Log Sale</button>
+  <button class="tab" id="tab-inventory" onclick="showPage('inventory',event)"><svg class="ic" aria-hidden="true"><use href="#ic-box"/></svg> Inventory</button>
+  <button class="tab" id="tab-po" onclick="showPage('po',event)"><svg class="ic" aria-hidden="true"><use href="#ic-clipboard"/></svg> Purchase Orders</button>
+  <button class="tab" id="tab-ml" onclick="showPage('masterlist',event)"><svg class="ic" aria-hidden="true"><use href="#ic-list"/></svg> Master List</button>
+  <button class="tab" id="tab-settings" onclick="showPage('settings',event)"><svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg> Settings</button>
+  <button class="tab" id="tab-setup" onclick="showPage('setup',event)"><svg class="ic" aria-hidden="true"><use href="#ic-zap"/></svg> Setup</button>
 </nav>
 
 <!-- SALES PAGE -->
@@ -69,7 +100,7 @@
     <!-- Active SO Banner -->
     <div id="soBanner" style="display:none;background:var(--accent-light);border:1.5px solid var(--accent);border-radius:10px;padding:10px 16px;margin-bottom:12px;display:none;align-items:center;justify-content:space-between;">
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:18px;">🧾</span>
+        <svg class="ic" style="width:20px;height:20px;" aria-hidden="true"><use href="#ic-receipt"/></svg>
         <div>
           <div style="font-size:12px;color:var(--muted);">Active Sales Order</div>
           <div style="font-size:15px;font-weight:700;color:var(--accent);font-family:monospace;" id="soLabel">SO-000000</div>
@@ -79,11 +110,11 @@
         <button class="btn btn-outline btn-sm" onclick="clearSO()">✕ New Order</button>
       </div>
     </div>
-    <div class="sw"><span class="si">🔍</span><input type="text" id="searchInput" placeholder="Search products..." oninput="filterProducts()"></div>
+    <div class="sw"><span class="si"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></span><input type="text" id="searchInput" placeholder="Search products..." oninput="filterProducts()"></div>
     <div class="cat-filter" id="catFilter"></div>
     <div class="pgrid" id="productGrid"></div>
     <div class="fbtn" id="floatBtn">
-      <button class="btn btn-primary" id="floatBtnInner" onclick="pendingItems.length?goToReview():showS('report')" style="border-radius:24px;padding:12px 22px;box-shadow:0 4px 20px rgba(27,46,107,.3);">📋 View Report</button>
+      <button class="btn btn-primary" id="floatBtnInner" onclick="pendingItems.length?goToReview():showS('report')" style="border-radius:24px;padding:12px 22px;box-shadow:0 4px 20px rgba(27,46,107,.3);">View Report</button>
     </div>
   </div>
   <!-- S2: DETAIL -->
@@ -107,7 +138,7 @@
     <!-- Freebie display (auto if product has freebie attached) -->
     <div id="freebieSec" style="display:none;" class="card" style="background:#f0fdf4;border-color:#bbf7d0;">
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:22px;">🎁</span>
+        <svg class="ic" style="width:22px;height:22px;color:var(--green);" aria-hidden="true"><use href="#ic-gift"/></svg>
         <div>
           <div style="font-size:13px;font-weight:700;color:#15803d;">Freebie Included!</div>
           <div style="font-size:13px;color:var(--text);" id="freebieItemName">—</div>
@@ -118,7 +149,10 @@
 
     <div id="addonSec" style="display:none;" class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div><div style="font-size:14px;font-weight:600;color:var(--accent);">➕ Add-on</div><div style="font-size:11px;color:var(--muted);">1 accessory per unit</div></div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px;"><svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg> Add-on</div>
+          <div style="font-size:11px;color:var(--muted);">1 accessory per unit</div>
+        </div>
         <button class="btn btn-outline btn-sm" id="addonPickerBtn" onclick="toggleAddonPicker()">+ Add Accessory</button>
       </div>
       <div id="addonPicker" style="display:none;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;">
@@ -157,11 +191,11 @@
       <!-- Customer Info (optional, only for first item in SO) -->
       <div id="custInfoSection" style="margin-top:16px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div style="font-size:13px;font-weight:600;color:var(--accent);">👤 Customer Info <span style="font-size:11px;font-weight:400;color:var(--muted);">(optional)</span></div>
+          <div style="font-size:13px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px;"><svg class="ic" aria-hidden="true"><use href="#ic-user"/></svg> Customer Info <span style="font-size:11px;font-weight:400;color:var(--muted);">(optional)</span></div>
           <button class="btn btn-ghost btn-sm" onclick="toggleCustomerInfo()" id="custInfoToggle" style="font-size:12px;color:var(--accent);">+ Add</button>
         </div>
         <div id="custInfoFields" style="display:none;background:var(--bg);border-radius:10px;padding:14px;border:1.5px solid var(--border);">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.6;">ℹ️ For marketing promotions and product concerns only. Customer info is never shared with third parties.</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.6;display:flex;align-items:flex-start;gap:6px;"><svg class="ic" style="width:14px;height:14px;flex-shrink:0;margin-top:1px;" aria-hidden="true"><use href="#ic-info"/></svg><span>For marketing promotions and product concerns only. Customer info is never shared with third parties.</span></div>
           <div class="g2" style="margin-bottom:8px;">
             <div class="field"><label>Name</label><input type="text" id="cust-name" placeholder="Customer name"></div>
             <div class="field"><label>Contact No.</label><input type="text" id="cust-contact" placeholder="09XX-XXX-XXXX"></div>
@@ -198,10 +232,10 @@
     </div>
     <div class="tbl" style="margin-bottom:18px;overflow-x:auto;">
       <table>
-        <thead><tr><th>SO#</th><th>Code</th><th>Item</th><th>Variant</th><th>Color</th><th>Qty</th><th>SRP</th><th>Sold Price</th><th>Pasa</th><th>Discount</th><th>Net Sales</th><th>Payment</th><th>Type</th><th></th></tr></thead>
-        <tbody id="salesBody"><tr><td colspan="13" style="text-align:center;color:var(--muted);padding:28px;">No transactions yet.</td></tr></tbody>
+        <thead><tr><th>SO#</th><th>Code</th><th>Item</th><th>Variant</th><th>Color</th><th>Qty</th><th>Unit Price</th><th>SRP</th><th>Sold Price</th><th>Pasa</th><th>Discount</th><th>Net Sales</th><th>Payment</th><th>Type</th><th></th></tr></thead>
+        <tbody id="salesBody"><tr><td colspan="14" style="text-align:center;color:var(--muted);padding:28px;">No transactions yet.</td></tr></tbody>
         <tfoot id="salesFoot" style="display:none;"><tr style="background:var(--accent-light);font-weight:700;">
-          <td colspan="7" style="padding:10px 14px;color:var(--accent);">TOTAL</td>
+          <td colspan="8" style="padding:10px 14px;color:var(--accent);">TOTAL</td>
           <td class="mono" id="tot-sold" style="padding:10px 14px;color:var(--accent);"></td>
           <td class="mono" id="tot-pasa" style="padding:10px 14px;color:var(--accent);"></td>
           <td class="mono" id="tot-disc" style="padding:10px 14px;color:var(--red);"></td>
@@ -213,7 +247,7 @@
     <div id="summarySection" style="display:none;">
       <div class="g3" style="margin-bottom:14px;">
         <div class="card">
-          <h3>📊 Sales Summary</h3>
+          <h3><svg class="ic" aria-hidden="true"><use href="#ic-chart"/></svg> Sales Summary</h3>
           <div style="font-size:13px;line-height:2.4;">
             <div style="display:flex;justify-content:space-between;"><span>Gross:</span><span class="mono" id="s-gross" style="font-weight:700;color:var(--accent);"></span></div>
             <div style="display:flex;justify-content:space-between;"><span>Discounts:</span><span class="mono" id="s-disc" style="font-weight:700;color:var(--red);"></span></div>
@@ -224,14 +258,14 @@
             <div style="display:flex;justify-content:space-between;"><span>Home Credit:</span><span class="mono" id="s-hc"></span></div>
           </div>
         </div>
-        <div class="card"><h3>👤 Staff's Sales</h3><div style="font-size:13px;line-height:2.4;" id="s-staff"></div></div>
+        <div class="card"><h3><svg class="ic" aria-hidden="true"><use href="#ic-user"/></svg> Staff's Sales</h3><div style="font-size:13px;line-height:2.4;" id="s-staff"></div></div>
         <div class="card">
-          <h3>🎯 Result</h3>
+          <h3><svg class="ic" aria-hidden="true"><use href="#ic-target"/></svg> Result</h3>
           <div id="s-result" style="font-size:20px;font-weight:700;margin-bottom:8px;"></div>
           <div style="font-size:13px;color:var(--muted);">Daily Target: <strong>₱3,000.00</strong></div>
           <div style="margin-top:14px;display:flex;gap:8px;">
-            <button class="btn btn-primary btn-sm" onclick="submitDayReport()">📤 Submit</button>
-            <button class="btn btn-outline btn-sm" onclick="printReport()">🖨 Print</button>
+            <button class="btn btn-primary btn-sm" onclick="submitDayReport()"><svg class="ic" aria-hidden="true"><use href="#ic-upload"/></svg> Submit</button>
+            <button class="btn btn-outline btn-sm" onclick="printReport()"><svg class="ic" aria-hidden="true"><use href="#ic-printer"/></svg> Print</button>
           </div>
         </div>
       </div>
@@ -276,7 +310,7 @@
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
         <button class="btn btn-outline" onclick="closePOEdit()">Cancel</button>
-        <button class="btn btn-success" onclick="savePOEdit()">💾 Save Changes</button>
+        <button class="btn btn-success" onclick="savePOEdit()"><svg class="ic" aria-hidden="true"><use href="#ic-check"/></svg> Save Changes</button>
       </div>
     </div>
   </div>
@@ -288,14 +322,14 @@
     <div><h2>Master List</h2><p class="subtitle" style="margin:0;">Manage products, pricing, colors and availability.</p></div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-outline btn-sm" onclick="openNewItemModal()">+ New Item</button>
-      <button class="btn btn-primary btn-sm" onclick="saveMasterList()">💾 Save Changes</button>
+      <button class="btn btn-primary btn-sm" onclick="saveMasterList()"><svg class="ic" aria-hidden="true"><use href="#ic-check"/></svg> Save Changes</button>
     </div>
   </div>
 
   <!-- Bundles section -->
   <div class="card" style="margin-bottom:14px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div><h3 style="margin:0;">🎁 Promotions</h3><div style="font-size:12px;color:var(--muted);margin-top:2px;">Seasonal promotions appear on Screen 1 alongside products.</div></div>
+      <div><h3 style="margin:0;display:flex;align-items:center;gap:8px;"><svg class="ic" aria-hidden="true"><use href="#ic-gift"/></svg> Promotions</h3><div style="font-size:12px;color:var(--muted);margin-top:2px;">Seasonal promotions appear on Screen 1 alongside products.</div></div>
       <button class="btn btn-outline btn-sm" onclick="openNewBundleModal()">+ New Promotion</button>
     </div>
     <div id="bundleList"><div style="font-size:13px;color:var(--muted);padding:8px 0;">No promotions defined yet.</div></div>
@@ -304,14 +338,14 @@
   <!-- Product Freebies -->
   <div class="card" style="margin-bottom:14px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div><h3 style="margin:0;">🎁 Product Freebies</h3><div style="font-size:12px;color:var(--muted);margin-top:2px;">Attach a free accessory to a phone/tablet. Shows automatically on Screen 2 when that product is selected.</div></div>
+      <div><h3 style="margin:0;display:flex;align-items:center;gap:8px;"><svg class="ic" aria-hidden="true"><use href="#ic-gift"/></svg> Product Freebies</h3><div style="font-size:12px;color:var(--muted);margin-top:2px;">Attach a free accessory to a phone/tablet. Shows automatically on Screen 2 when that product is selected.</div></div>
       <button class="btn btn-outline btn-sm" onclick="openFreebieModal()">+ New Freebie</button>
     </div>
     <div id="freebieList"><div style="font-size:13px;color:var(--muted);padding:8px 0;">No freebies defined yet.</div></div>
   </div>
 
   <!-- Search -->
-  <div class="sw" style="margin-bottom:12px;"><span class="si">🔍</span><input type="text" id="mlSearch" placeholder="Search products..." oninput="renderML()"></div>
+  <div class="sw" style="margin-bottom:12px;"><span class="si"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></span><input type="text" id="mlSearch" placeholder="Search products..." oninput="renderML()"></div>
 
   <div class="tbl" style="overflow-x:auto;">
     <table><thead><tr><th>Category</th><th>Product</th><th>Variant</th><th>Colors</th><th>Unit Price (₱)</th><th>SRP (₱)</th><th>Status</th></tr></thead>
@@ -395,7 +429,7 @@
 <div class="page" id="page-settings">
   <h2>Settings</h2><p class="subtitle">Configure store operations and thresholds.</p>
   <div class="card" style="max-width:520px;">
-    <h3>🎯 Sales Target</h3>
+    <h3><svg class="ic" aria-hidden="true"><use href="#ic-target"/></svg> Sales Target</h3>
     <div class="field" style="margin-bottom:16px;">
       <label>Daily Net Sales Target (₱)</label>
       <input type="number" id="set-target" placeholder="3000" style="max-width:200px;">
@@ -403,7 +437,7 @@
     </div>
   </div>
   <div class="card" style="max-width:520px;">
-    <h3>📦 Inventory Thresholds</h3>
+    <h3><svg class="ic" aria-hidden="true"><use href="#ic-box"/></svg> Inventory Thresholds</h3>
     <div class="field" style="margin-bottom:16px;">
       <label>Low Stock Threshold (units)</label>
       <input type="number" id="set-lowstock" placeholder="2" style="max-width:200px;">
@@ -416,7 +450,7 @@
     </div>
   </div>
   <div class="card" style="max-width:520px;">
-    <h3>🔐 Admin PIN</h3>
+    <h3><svg class="ic" aria-hidden="true"><use href="#ic-lock"/></svg> Admin PIN</h3>
     <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Change the PIN required to access the Admin account. Minimum 4 digits.</p>
     <div class="field" style="margin-bottom:12px;">
       <label>Current PIN</label>
@@ -431,17 +465,17 @@
       <input type="password" id="pin-confirm" inputmode="numeric" maxlength="8" placeholder="Repeat new PIN" style="max-width:200px;">
     </div>
     <div id="pinChangeStatus" style="font-size:13px;min-height:18px;margin-bottom:10px;"></div>
-    <button class="btn btn-primary" onclick="changeAdminPin()">🔐 Update PIN</button>
+    <button class="btn btn-primary" onclick="changeAdminPin()"><svg class="ic" aria-hidden="true"><use href="#ic-lock"/></svg> Update PIN</button>
   </div>
   <div class="card" style="max-width:520px;">
-    <h3>📋 Per-Item Reorder Points</h3>
+    <h3><svg class="ic" aria-hidden="true"><use href="#ic-list"/></svg> Per-Item Reorder Points</h3>
     <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Override the global reorder point for specific items.</p>
     <div class="tbl" style="overflow-x:auto;">
       <table><thead><tr><th>Product</th><th>Variant</th><th>Current Stock</th><th>Reorder At</th></tr></thead>
       <tbody id="reorderBody"></tbody></table>
     </div>
     <div style="margin-top:14px;display:flex;gap:8px;">
-      <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+      <button class="btn btn-primary" onclick="saveSettings()"><svg class="ic" aria-hidden="true"><use href="#ic-check"/></svg> Save Settings</button>
       <button class="btn btn-outline" onclick="applyGlobalReorder()">Apply Global to All</button>
     </div>
   </div>
@@ -621,7 +655,7 @@ function respond(data) {
     <div style="display:flex;gap:10px;margin-bottom:10px;"><input type="url" id="scriptUrl" placeholder="https://script.google.com/macros/s/..." style="flex:1;"><button class="btn btn-primary" onclick="connectSheet()">Connect</button></div>
     <div id="connectStatus" style="font-size:13px;color:var(--muted);"></div>
   </div>
-  <div class="card"><div class="stepb">4</div><h3>Push Master List</h3><p style="font-size:13px;color:var(--muted);margin-bottom:12px;">One-time push of all products to the Inventory sheet.</p><button class="btn btn-success" onclick="pushInventory()">Push Master List</button><span id="pushStatus" style="margin-left:12px;font-size:13px;color:var(--muted);"></span></div>
+  <div class="card"><div class="stepb">4</div><h3>Push Master List</h3><p style="font-size:13px;color:var(--muted);margin-bottom:12px;">One-time push of all products to the Inventory sheet.</p><button class="btn btn-success" onclick="pushInventory()"><svg class="ic" aria-hidden="true"><use href="#ic-upload"/></svg> Push Master List</button><span id="pushStatus" style="margin-left:12px;font-size:13px;color:var(--muted);"></span></div>
 </div>
 
 <div class="toast" id="toast"></div>
