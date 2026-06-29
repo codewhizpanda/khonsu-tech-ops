@@ -78,7 +78,16 @@ export async function pushInventory() {
     const units = state.units || [];
     statusEl.textContent = 'Pushing IMEI Units (' + units.length + ')…';
     if (units.length) {
-      await _push('replaceUnits', { units }, 'IMEI Units (' + units.length + ')', statusEl);
+      try {
+        await _push('replaceUnits', { units }, 'IMEI Units (' + units.length + ')', statusEl);
+      } catch (e) {
+        if (e.message.includes('Unknown action')) {
+          // Old Apps Script deployed — fall back to saveUnits (append-only, fine for empty sheet)
+          await _push('saveUnits', { units }, 'IMEI Units (' + units.length + ') [append]', statusEl);
+        } else {
+          throw e;
+        }
+      }
     } else {
       statusEl.textContent = 'No IMEI units found locally — run the app first to generate placeholders.';
       toast('Warning: no units in local state', 'error');
