@@ -63,6 +63,10 @@ function init() {
   // Keep window.masterList in sync after reassignment (used by inline oninput handlers in renderML)
   window.masterList = state.masterList;
 
+  // Restore session — auto-login if a user was active before the last refresh
+  const savedUser = localStorage.getItem('kt_user');
+  if (savedUser) login(savedUser);
+
   document.addEventListener('page:change', e => {
     const name = e.detail;
     if (name === 'inventory') renderInv();

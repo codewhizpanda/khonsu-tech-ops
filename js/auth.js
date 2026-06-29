@@ -14,6 +14,7 @@ async function localHash(pin) {
 
 export function login(user) {
   state.currentUser = user;
+  localStorage.setItem('kt_user', user);
   document.getElementById('lockScreen').style.display = 'none';
   document.getElementById('userPill').innerHTML = '<svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em;" aria-hidden="true"><use href="#ic-user"/></svg> ' + user + ' — Switch';
   const adminTabs = ['tab-inventory', 'tab-po', 'tab-ml', 'tab-settings', 'tab-setup', 'tab-reports', 'tab-dashboard'];
@@ -34,6 +35,7 @@ export function login(user) {
 
 export function logout() {
   state.currentUser = null;
+  localStorage.removeItem('kt_user');
   document.getElementById('lockScreen').style.display = 'flex';
   showPage('sales', null);
   showS('picker');
