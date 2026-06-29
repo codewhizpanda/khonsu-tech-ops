@@ -25,81 +25,74 @@ export async function connectSheet() {
   }
 }
 
+async function _push(action, body, label, statusEl) {
+  statusEl.textContent = 'Pushing ' + label + '…';
+  const res = await fetch(state.scriptUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action, ...body }),
+  });
+  const json = await res.json();
+  if (json.error) throw new Error(label + ': ' + json.error);
+  return json;
+}
+
 export async function pushInventory() {
   if (!state.scriptUrl) { toast('Connect a sheet first', 'error'); return; }
-  document.getElementById('pushStatus').textContent = 'Pushing all data…';
+  const statusEl = document.getElementById('pushStatus');
+  statusEl.textContent = 'Starting…';
+  const btn = document.querySelector('[onclick="pushInventory()"]');
+  if (btn) btn.disabled = true;
+
   try {
-    // Products
     const productRows = state.masterList.map(p => [
       ik(p), p.category, p.name, p.ram || '', p.storage || '',
       p.colors || '', p.unitPrice, p.srp, p.obsolete ? 'Obsolete' : 'Active',
     ]);
-    await fetch(state.scriptUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveProducts', rows: productRows }),
-    });
+    await _push('saveProducts', { rows: productRows }, 'Products (' + productRows.length + ')', statusEl);
 
-    // Inventory
     const inventoryRows = state.masterList.map(p => ({
       productKey: ik(p),
       stock: (state.inventory[ik(p)] || {}).stock || 0,
       reorder: (state.inventory[ik(p)] || {}).reorder || 1,
     }));
-    await fetch(state.scriptUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveInventory', rows: inventoryRows }),
-    });
+    await _push('saveInventory', { rows: inventoryRows }, 'Inventory', statusEl);
 
-    // Promotions
-    await fetch(state.scriptUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'savePromotions', bundles: state.predefinedBundles }),
-    });
+    await _push('savePromotions', { bundles: state.predefinedBundles }, 'Promotions', statusEl);
 
-    // Freebies
     const freebies = Object.entries(state.productFreebies).map(([mainKey, freebieKey]) => {
       const mainP = state.masterList.find(p => ik(p) === mainKey);
       const fbP = state.masterList.find(p => ik(p) === freebieKey);
       return { mainKey, freebieKey, mainName: mainP ? mainP.name : '', freebieName: fbP ? fbP.name : '' };
     });
-    await fetch(state.scriptUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'saveFreebies', freebies }),
-    });
+    await _push('saveFreebies', { freebies }, 'Freebies', statusEl);
 
-    // Settings
-    await fetch(state.scriptUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        action: 'saveSettings',
-        settings: {
-          DailyTarget: state.settings.dailyTarget,
-          LowStockThreshold: state.settings.lowStockThreshold,
-          GlobalReorder: state.settings.globalReorder,
-        },
-      }),
-    });
+    await _push('saveSettings', {
+      settings: {
+        DailyTarget: state.settings.dailyTarget,
+        LowStockThreshold: state.settings.lowStockThreshold,
+        GlobalReorder: state.settings.globalReorder,
+      },
+    }, 'Settings', statusEl);
 
-    // IMEI Units (replaces all — safe since sheet is append-only log; this syncs local state)
-    if (state.units && state.units.length) {
-      await fetch(state.scriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'replaceUnits', units: state.units }),
-      });
+    const units = state.units || [];
+    statusEl.textContent = 'Pushing IMEI Units (' + units.length + ')…';
+    if (units.length) {
+      await _push('replaceUnits', { units }, 'IMEI Units (' + units.length + ')', statusEl);
+    } else {
+      statusEl.textContent = 'No IMEI units found locally — run the app first to generate placeholders.';
+      toast('Warning: no units in local state', 'error');
+      return;
     }
 
-    document.getElementById('pushStatus').textContent = 'All data pushed to Sheets!';
+    statusEl.textContent = '✓ All data pushed to Sheets!';
     toast('All data pushed to Google Sheets!', 'success');
   } catch (e) {
-    document.getElementById('pushStatus').textContent = 'Push failed: ' + e.message;
-    toast('Push failed — check console', 'error');
+    statusEl.textContent = '✗ ' + e.message;
+    toast('Push failed — see Setup tab for details', 'error');
     console.error('Push all data error:', e);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
