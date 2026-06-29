@@ -2,7 +2,7 @@ import { state, saveInv } from './state.js';
 import { ik } from './utils.js';
 import { toast } from './toast.js';
 import { buildCatFilter, renderProducts } from './products.js';
-import { updateBanner } from './sync.js';
+import { updateBanner, showSyncOverlay, hideSyncOverlay } from './sync.js';
 
 export async function connectSheet() {
   const url = document.getElementById('scriptUrl').value.trim();
@@ -10,7 +10,7 @@ export async function connectSheet() {
   state.scriptUrl = url;
   localStorage.setItem('kt_url', url);
   document.getElementById('connectStatus').textContent = 'Connecting…';
-  _showOverlay('Connecting to Sheets…');
+  showSyncOverlay('Connecting to Sheets…');
   try {
     await fetch(url, {
       method: 'POST',
@@ -24,7 +24,7 @@ export async function connectSheet() {
     document.getElementById('connectStatus').textContent = 'URL saved. (CORS in preview is normal — deployed app will work fine.)';
     toast('URL saved', 'success');
   } finally {
-    _hideOverlay();
+    hideSyncOverlay();
   }
 }
 
@@ -40,29 +40,13 @@ async function _push(action, body, label, statusEl) {
   return json;
 }
 
-let _overlayShownAt = 0;
-function _showOverlay(msg) {
-  const el = document.getElementById('syncOverlay');
-  if (!el) { console.warn('syncOverlay not found'); return; }
-  document.getElementById('syncOverlayMsg').textContent = msg || 'Syncing data…';
-  el.style.display = 'flex';
-  _overlayShownAt = Date.now();
-}
-function _hideOverlay() {
-  const el = document.getElementById('syncOverlay');
-  if (!el) return;
-  const elapsed = Date.now() - _overlayShownAt;
-  const delay = Math.max(0, 600 - elapsed);
-  setTimeout(() => { el.style.display = 'none'; }, delay);
-}
-
 export async function pushInventory() {
   if (!state.scriptUrl) { toast('Connect a sheet first', 'error'); return; }
   const statusEl = document.getElementById('pushStatus');
   statusEl.textContent = 'Starting…';
   const btn = document.querySelector('[onclick="pushInventory()"]');
   if (btn) btn.disabled = true;
-  _showOverlay('Pushing data to Sheets…');
+  showSyncOverlay('Pushing data to Sheets…');
 
   try {
     const productRows = state.masterList.map(p => [
@@ -122,7 +106,7 @@ export async function pushInventory() {
     console.error('Push all data error:', e);
   } finally {
     if (btn) btn.disabled = false;
-    _hideOverlay();
+    hideSyncOverlay();
   }
 }
 

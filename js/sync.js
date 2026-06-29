@@ -3,6 +3,21 @@ import { toast } from './toast.js';
 
 const QUEUE_KEY = 'kt_queue';
 
+let _overlayShownAt = 0;
+export function showSyncOverlay(msg) {
+  const el = document.getElementById('syncOverlay');
+  if (!el) return;
+  document.getElementById('syncOverlayMsg').textContent = msg || 'Syncing…';
+  el.style.display = 'flex';
+  _overlayShownAt = Date.now();
+}
+export function hideSyncOverlay() {
+  const el = document.getElementById('syncOverlay');
+  if (!el) return;
+  const delay = Math.max(0, 600 - (Date.now() - _overlayShownAt));
+  setTimeout(() => { el.style.display = 'none'; }, delay);
+}
+
 export function getQueue() {
   try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; }
 }
@@ -44,6 +59,7 @@ export async function processQueue() {
   if (!q.length) { toast('Nothing to sync', 'success'); return; }
   if (!state.scriptUrl) { toast('Connect Google Sheets first in Setup', 'error'); return; }
 
+  showSyncOverlay('Syncing to Google Sheets…');
   updateBanner(true);
   const failed = [];
 
@@ -62,6 +78,7 @@ export async function processQueue() {
   }
 
   saveQueue(failed);
+  hideSyncOverlay();
 
   if (!failed.length) {
     toast('All data synced to Google Sheets', 'success');
@@ -87,6 +104,7 @@ export function updateBanner(syncing = false) {
 
 export async function pullFromSheets() {
   if (!state.scriptUrl) return;
+  showSyncOverlay('Loading data from Sheets…');
   try {
     const res = await fetch(state.scriptUrl + '?action=getAllData');
     const data = await res.json();
@@ -165,6 +183,8 @@ export async function pullFromSheets() {
     toast('Data synced from Google Sheets', 'success');
   } catch (e) {
     console.warn('Pull from Sheets failed:', e.message);
+  } finally {
+    hideSyncOverlay();
   }
 }
 
