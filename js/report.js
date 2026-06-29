@@ -4,7 +4,7 @@ import { toast } from './toast.js';
 import { generatePO } from './purchase-orders.js';
 import { renderInv } from './inventory.js';
 import { showS } from './nav.js';
-import { processQueue, getQueue } from './sync.js';
+import { processQueue, getQueue, showSyncOverlay, hideSyncOverlay } from './sync.js';
 
 export function renderSalesTable() {
   const body = document.getElementById('salesBody');
@@ -107,11 +107,40 @@ export function removeRow(id) {
 
 export async function submitDayReport() {
   if (!state.saleRows.length) { toast('No transactions to submit', 'error'); return; }
-  if (getQueue().length > 0 && state.scriptUrl) {
-    await processQueue();
-  } else if (!state.scriptUrl) {
+
+  if (state.scriptUrl) {
+    showSyncOverlay('Submitting sales to Sheets…');
+    try {
+      const res = await fetch(state.scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'logSale', date: new Date().toISOString(), rows: state.saleRows }),
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      const q = getQueue();
+      if (q.length) {
+        for (const item of q) {
+          try {
+            const r = await fetch(state.scriptUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
+              body: JSON.stringify({ action: item.action, ...item.payload }),
+            });
+            await r.json();
+          } catch { /* leave in queue */ }
+        }
+      }
+    } catch (e) {
+      hideSyncOverlay();
+      toast('Submit failed: ' + e.message, 'error');
+      return;
+    }
+    hideSyncOverlay();
+  } else {
     toast('No sheet connected — data saved locally', 'success');
   }
+
   const low = [];
   state.PRODUCTS.forEach(p => {
     const k = ik(p);

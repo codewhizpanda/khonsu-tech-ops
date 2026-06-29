@@ -313,8 +313,6 @@ export function confirmSale() {
 
   saveInv();
 
-  const newRows = state.saleRows.slice(rowStart);
-  tryPush('logSale', { date: new Date().toISOString(), rows: newRows });
   if (decrements.length) {
     tryPush('updateInventoryItems', {
       items: decrements.map(d => ({
