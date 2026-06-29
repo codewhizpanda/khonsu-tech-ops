@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { toast } from './toast.js';
 import { buildCatFilter, renderProducts } from './products.js';
-import { pullFromSheets, getQueue } from './sync.js';
+import { pullFromSheets, restoreTodaySales, getQueue } from './sync.js';
 import { showPage, showS } from './nav.js';
 
 // SHA-256 of "1234" — used only when no Apps Script is connected yet
@@ -24,6 +24,8 @@ export function login(user) {
   buildCatFilter();
   renderProducts();
   if (state.scriptUrl) {
+    // Always restore today's sales regardless of queue state
+    restoreTodaySales().catch(() => {});
     setTimeout(() => {
       if (!getQueue().length) {
         pullFromSheets().catch(() => {});
