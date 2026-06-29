@@ -10,6 +10,7 @@ export async function connectSheet() {
   state.scriptUrl = url;
   localStorage.setItem('kt_url', url);
   document.getElementById('connectStatus').textContent = 'Connecting…';
+  _showOverlay('Connecting to Sheets…');
   try {
     await fetch(url, {
       method: 'POST',
@@ -22,6 +23,8 @@ export async function connectSheet() {
   } catch (e) {
     document.getElementById('connectStatus').textContent = 'URL saved. (CORS in preview is normal — deployed app will work fine.)';
     toast('URL saved', 'success');
+  } finally {
+    _hideOverlay();
   }
 }
 
@@ -37,12 +40,24 @@ async function _push(action, body, label, statusEl) {
   return json;
 }
 
+function _showOverlay(msg) {
+  const el = document.getElementById('syncOverlay');
+  if (!el) return;
+  document.getElementById('syncOverlayMsg').textContent = msg || 'Syncing data…';
+  el.style.display = 'flex';
+}
+function _hideOverlay() {
+  const el = document.getElementById('syncOverlay');
+  if (el) el.style.display = 'none';
+}
+
 export async function pushInventory() {
   if (!state.scriptUrl) { toast('Connect a sheet first', 'error'); return; }
   const statusEl = document.getElementById('pushStatus');
   statusEl.textContent = 'Starting…';
   const btn = document.querySelector('[onclick="pushInventory()"]');
   if (btn) btn.disabled = true;
+  _showOverlay('Pushing data to Sheets…');
 
   try {
     const productRows = state.masterList.map(p => [
@@ -102,6 +117,7 @@ export async function pushInventory() {
     console.error('Push all data error:', e);
   } finally {
     if (btn) btn.disabled = false;
+    _hideOverlay();
   }
 }
 

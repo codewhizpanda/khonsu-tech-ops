@@ -68,6 +68,7 @@ export function renderAddonGrid() {
       document.getElementById('f-bundle').value = 'BDL-' + dp + '-' + String(state.bundleCounter).padStart(3, '0');
     }
     document.getElementById('addonPickerBtn').style.display = 'none';
+    document.getElementById('addonPicker').style.display = 'none';
     renderAddonList();
     recalc();
   };
@@ -105,6 +106,7 @@ export function removeAddon() {
   document.getElementById('f-bundle').value = '';
   document.getElementById('addonList').style.display = 'none';
   document.getElementById('addonPickerBtn').style.display = '';
+  document.getElementById('addonPicker').style.display = 'none';
   renderAddonGrid();
   recalc();
 }
