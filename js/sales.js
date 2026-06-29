@@ -205,6 +205,7 @@ export function editPendingItem(idx) {
         if (item.addon) state.selectedAddon = item.addon;
         if (item.soldType === 'Pasa') {
           document.getElementById('promoterField').style.display = 'block';
+          document.getElementById('pasaField').style.display = 'block';
         }
         renderAddonList();
         recalc();

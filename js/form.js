@@ -38,7 +38,8 @@ export function allColorsEntered() {
 export function onSoldTypeChange() {
   const isPasa = document.getElementById('f-soldtype').value === 'Pasa';
   document.getElementById('promoterField').style.display = isPasa ? 'block' : 'none';
-  document.getElementById('f-pasa').value = '';
+  document.getElementById('pasaField').style.display = isPasa ? 'block' : 'none';
+  if (!isPasa) document.getElementById('f-pasa').value = '';
   recalc();
 }
 
