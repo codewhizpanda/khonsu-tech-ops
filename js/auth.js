@@ -69,7 +69,7 @@ export async function submitAdminPin() {
     if (state.scriptUrl) {
       const res = await fetch(state.scriptUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'verifyPin', pin }),
       });
       const data = await res.json();
@@ -120,7 +120,7 @@ export async function changeAdminPin() {
   try {
     const res = await fetch(state.scriptUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'setPin', current, next }),
     });
     const data = await res.json();

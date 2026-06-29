@@ -31,7 +31,7 @@ export async function tryPush(action, payload) {
   try {
     const res = await fetch(state.scriptUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action, ...payload }),
     });
     await res.json();
@@ -52,7 +52,7 @@ export async function processQueue() {
     try {
       const res = await fetch(state.scriptUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: item.action, ...item.payload }),
       });
       await res.json();

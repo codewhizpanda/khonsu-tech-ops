@@ -13,7 +13,7 @@ export async function connectSheet() {
   try {
     await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'init' }),
     });
     document.getElementById('connectStatus').textContent = 'Connected and sheets initialized!';
@@ -36,7 +36,7 @@ export async function pushInventory() {
     ]);
     await fetch(state.scriptUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'saveProducts', rows: productRows }),
     });
 
@@ -48,14 +48,14 @@ export async function pushInventory() {
     }));
     await fetch(state.scriptUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'saveInventory', rows: inventoryRows }),
     });
 
     // Promotions
     await fetch(state.scriptUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'savePromotions', bundles: state.predefinedBundles }),
     });
 
@@ -67,14 +67,14 @@ export async function pushInventory() {
     });
     await fetch(state.scriptUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'saveFreebies', freebies }),
     });
 
     // Settings
     await fetch(state.scriptUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'saveSettings',
         settings: {
@@ -88,8 +88,9 @@ export async function pushInventory() {
     document.getElementById('pushStatus').textContent = 'All data pushed to Sheets!';
     toast('All data pushed to Google Sheets!', 'success');
   } catch (e) {
-    document.getElementById('pushStatus').textContent = 'Sent (check your sheet)';
-    toast('Pushed (check sheet for confirmation)', 'success');
+    document.getElementById('pushStatus').textContent = 'Push failed: ' + e.message;
+    toast('Push failed — check console', 'error');
+    console.error('Push all data error:', e);
   }
 }
 
