@@ -166,9 +166,7 @@ export function filterIMEIList(query) {
 export function selectIMEI(imei) {
   const unit = state.units.find(u => u.imei === imei && u.status === 'available');
   if (!unit) { toast('Unit not available', 'error'); return; }
-  if (!state.selectedIMEIs) state.selectedIMEIs = [];
-  if (state.selectedIMEIs.find(u => u.imei === imei)) { toast('Already selected', 'error'); return; }
-  state.selectedIMEIs.push(unit);
+  state.selectedIMEIs = [unit];
   const inp = document.getElementById('imeiInput');
   if (inp) inp.value = '';
   const dd = document.getElementById('imeiDropdown');
@@ -331,6 +329,7 @@ export function confirmRestock() {
   toast('Stock received successfully!', 'success');
 }
 
+window.renderIMEIPicker = renderIMEIPicker;
 window.filterIMEIList = filterIMEIList;
 window.selectIMEI = selectIMEI;
 window.removeSelectedIMEI = removeSelectedIMEI;
