@@ -39,7 +39,6 @@ export function buildPendingItem() {
   const bundleName = fb.dataset.bundleName || '';
 
   if (soldType === 'Pasa' && !promoter) { toast('Please enter promoter name', 'error'); return null; }
-  if (soldType === 'Pasa' && !pasa) { toast('Please enter a Pasa price', 'error'); return null; }
 
   const srp = p.srp;
   const isPromo = bundlePrice > 0;
@@ -206,7 +205,6 @@ export function editPendingItem(idx) {
         if (item.addon) state.selectedAddon = item.addon;
         if (item.soldType === 'Pasa') {
           document.getElementById('promoterField').style.display = 'block';
-          document.getElementById('pasaField').style.display = 'block';
         }
         renderAddonList();
         recalc();
