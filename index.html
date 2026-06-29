@@ -534,6 +534,7 @@ function doPost(e) {
     if (d.action === 'saveFreebies')         return saveFreebies(d);
     if (d.action === 'saveSettings')         return saveSettings(d);
     if (d.action === 'saveUnits')            return saveUnits(d);
+    if (d.action === 'replaceUnits')         return replaceUnits(d);
     if (d.action === 'updateUnitStatus')     return updateUnitStatus(d);
     if (d.action === 'verifyPin')            return verifyPin(d);
     if (d.action === 'setPin')               return setPin(d);
@@ -552,7 +553,7 @@ function initSheets() {
   const tabs = {
     'Products':        ['ProductKey','Category','Name','RAM','Storage','Colors','UnitPrice','SRP','Status'],
     'Inventory':       ['ProductKey','Stock','ReorderPoint','LastUpdated'],
-    'Sales':           ['SaleID','Date','Time','SO','BundleCode','ItemName','Variant','Color','Qty','UnitPrice','SRP','SoldPrice','PasaPrice','Discount','NetSales','Payment','SoldType','Promoter','Staff','IsAddon','IsPromotion','CustomerName','CustomerContact','CustomerEmail'],
+    'Sales':           ['SaleID','Date','Time','SO','BundleCode','ItemName','Variant','Color','Qty','UnitPrice','SRP','SoldPrice','PasaPrice','Discount','NetSales','Payment','SoldType','Promoter','Staff','IsAddon','IsPromotion','CustomerName','CustomerContact','CustomerEmail','IMEI'],
     'Purchase_Orders': ['POID','Date','Supplier','Approver','Status'],
     'PO_Items':        ['POID','ItemName','Qty','Color'],
     'Promotions':      ['BundleID','Name','Price','MainProductKey','MainProductName','AddonProductKey','AddonProductName'],
@@ -618,7 +619,8 @@ function logSale(d) {
       r.isAddon?'Yes':'', r.isPromotion?'Yes':'',
       r.customer?(r.customer.name||''):'',
       r.customer?(r.customer.contact||''):'',
-      r.customer?(r.customer.email||''):''
+      r.customer?(r.customer.email||''):'',
+      (r.imeis||[]).join(', ')
     ]);
   });
   return respond({status:'Sale logged', count:(d.rows||[]).length});
@@ -720,6 +722,13 @@ function saveUnits(d) {
   const sh = getOrCreateSheet('IMEI_Units', ['IMEI','ProductKey','ProductName','Color','Status','DRNumber','ReceivedDate','SONumber','SoldDate','IsDummy']);
   (d.units||[]).forEach(u => sh.appendRow([u.imei, u.productKey, u.productName, u.color, u.status||'available', u.drNumber||'', u.receivedDate||'', u.soNumber||'', u.soldDate||'', u.isDummy?'Yes':'No']));
   return respond({status:'Units saved', count:(d.units||[]).length});
+}
+
+function replaceUnits(d) {
+  const sh = getOrCreateSheet('IMEI_Units', ['IMEI','ProductKey','ProductName','Color','Status','DRNumber','ReceivedDate','SONumber','SoldDate','IsDummy']);
+  clearData(sh);
+  (d.units||[]).forEach(u => sh.appendRow([u.imei, u.productKey, u.productName, u.color, u.status||'available', u.drNumber||'', u.receivedDate||'', u.soNumber||'', u.soldDate||'', u.isDummy?'Yes':'No']));
+  return respond({status:'Units replaced', count:(d.units||[]).length});
 }
 
 function updateUnitStatus(d) {

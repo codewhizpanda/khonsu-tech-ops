@@ -85,6 +85,15 @@ export async function pushInventory() {
       }),
     });
 
+    // IMEI Units (replaces all — safe since sheet is append-only log; this syncs local state)
+    if (state.units && state.units.length) {
+      await fetch(state.scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'replaceUnits', units: state.units }),
+      });
+    }
+
     document.getElementById('pushStatus').textContent = 'All data pushed to Sheets!';
     toast('All data pushed to Google Sheets!', 'success');
   } catch (e) {
