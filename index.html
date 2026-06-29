@@ -2,8 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Khonsu Tech — OPS</title>
+<meta name="theme-color" content="#1b2e6b">
+<meta name="description" content="Sales Operations System — Khonsu Electronic Gadgets Trading">
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<!-- iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KhonsuOPS">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -618,5 +627,13 @@ function respond(data) {
 <div class="toast" id="toast"></div>
 
 <script type="module" src="js/main.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(e => console.error('SW registration failed:', e));
+  });
+}
+</script>
 </body>
 </html>
