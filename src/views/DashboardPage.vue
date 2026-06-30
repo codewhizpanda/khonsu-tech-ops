@@ -177,7 +177,7 @@ const donutSegments = computed(() => {
           <span style="font-size:13px;font-weight:600;">Daily Target</span>
         </div>
         <span style="font-size:13px;font-weight:700;font-family:monospace;" :style="{ color: stats.metTarget ? 'var(--green)' : 'var(--red)' }">
-          {{ fmt(stats.todayNet) }} / ₱{{ (stats.target || 0).toLocaleString() }}
+          {{ fmt(stats.todayNet) }} / {{ fmt(stats.target) }}
         </span>
       </div>
       <div style="height:10px;border-radius:6px;background:var(--border);overflow:hidden;">
@@ -251,7 +251,7 @@ const donutSegments = computed(() => {
           <div v-if="!donutSegments.length" style="font-size:12px;color:var(--muted);text-align:center;">No payment data</div>
           <div v-for="seg in donutSegments" :key="seg.label" style="display:flex;align-items:center;gap:8px;font-size:12px;">
             <span :style="{ width: '10px', height: '10px', borderRadius: '50%', background: seg.color, flexShrink: 0 }" />
-            <span>{{ seg.label }}: <strong style="font-family:monospace;">₱{{ seg.value.toLocaleString() }}</strong></span>
+            <span>{{ seg.label }}: <strong style="font-family:monospace;">{{ fmt(seg.value) }}</strong></span>
           </div>
         </div>
       </div>

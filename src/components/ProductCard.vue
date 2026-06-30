@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { vl } from '@/utils.js';
+import { vl, fmt } from '@/utils.js';
 
 const props = defineProps({
   product: { type: Object, required: true },
@@ -22,6 +22,6 @@ const stockLabel = computed(() =>
     <div class="cl">{{ product.category }}</div>
     <div class="pn">{{ product.name }}</div>
     <div class="pv">{{ vl(product) || '—' }}</div>
-    <div class="pp">₱{{ product.srp.toLocaleString() }}</div>
+    <div class="pp">{{ fmt(product.srp) }}</div>
   </div>
 </template>

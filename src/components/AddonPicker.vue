@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik } from '@/utils.js';
+import { ik, fmt } from '@/utils.js';
 
 const emit = defineEmits(['select', 'remove']);
 const store = useAppStore();
@@ -67,7 +67,7 @@ function selectAddon(p) {
           </div>
           <div class="cl">{{ p.category }}</div>
           <div class="pn" style="font-size:12px;">{{ p.name }}</div>
-          <div class="pp" style="font-size:13px;">₱{{ p.srp.toLocaleString() }}</div>
+          <div class="pp" style="font-size:13px;">{{ fmt(p.srp) }}</div>
         </div>
         <div v-if="!addonProducts.length" style="padding:20px;text-align:center;color:var(--muted);grid-column:1/-1;">
           No accessories.

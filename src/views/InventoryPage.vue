@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik, vl } from '@/utils.js';
+import { ik, vl, fmt } from '@/utils.js';
 
 const store = useAppStore();
 
@@ -71,7 +71,7 @@ const stats = computed(() => ({
               </td>
               <td style="padding:9px 14px;color:var(--muted);font-size:12px;">{{ vl(p) || '—' }}</td>
               <td style="padding:9px 14px;font-size:12px;color:var(--muted);max-width:180px;">{{ p.colors || '—' }}</td>
-              <td style="padding:9px 14px;text-align:right;font-family:monospace;">₱{{ (p.srp || 0).toLocaleString() }}</td>
+              <td style="padding:9px 14px;text-align:right;font-family:monospace;">{{ fmt(p.srp) }}</td>
               <td style="padding:9px 14px;text-align:right;font-family:monospace;font-weight:700;">{{ inv.stock }}</td>
               <td style="padding:9px 14px;text-align:center;">
                 <span

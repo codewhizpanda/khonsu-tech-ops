@@ -99,7 +99,7 @@ const custInfo = computed(() => items.value.find(i => i.customer)?.customer || n
         <div v-if="item.addon" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--accent-light);border-radius:8px;margin-bottom:8px;">
           <svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use href="#ic-plus"/></svg>
           <div style="flex:1;font-size:13px;font-weight:600;">{{ item.addon.product.name }}</div>
-          <div style="font-size:13px;font-weight:700;color:var(--accent);font-family:monospace;">₱{{ item.addon.soldPrice.toLocaleString() }}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--accent);font-family:monospace;">{{ fmt(item.addon.soldPrice) }}</div>
         </div>
 
         <!-- Freebie / promo addon -->

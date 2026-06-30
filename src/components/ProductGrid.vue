@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik, vl } from '@/utils.js';
+import { ik, vl, fmt } from '@/utils.js';
 import ProductCard from '@/components/ProductCard.vue';
 
 const emit = defineEmits(['open-detail', 'open-bundle']);
@@ -63,7 +63,7 @@ function selectCat(c) {
             <span style="font-weight:600;color:var(--accent2);">Phone:</span> {{ b.mainName }}<br>
             <span style="font-weight:600;color:var(--accent2);">Accessory:</span> {{ b.addonName }}
           </div>
-          <div class="pp">₱{{ b.price.toLocaleString() }}</div>
+          <div class="pp">{{ fmt(b.price) }}</div>
         </div>
       </template>
       <div v-else style="padding:40px;text-align:center;color:var(--muted);grid-column:1/-1;">

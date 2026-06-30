@@ -159,8 +159,8 @@ load('today');
               <td style="padding:8px 12px;color:var(--muted);white-space:nowrap;">{{ r.Variant || '—' }}</td>
               <td style="padding:8px 12px;white-space:nowrap;">{{ r.Color || '—' }}</td>
               <td style="padding:8px 12px;text-align:right;font-family:monospace;">{{ r.Qty || 0 }}</td>
-              <td style="padding:8px 12px;text-align:right;font-family:monospace;">₱{{ (Number(r.SoldPrice) || 0).toLocaleString() }}</td>
-              <td style="padding:8px 12px;text-align:right;font-family:monospace;color:var(--green);">₱{{ (Number(r.NetSales) || 0).toLocaleString() }}</td>
+              <td style="padding:8px 12px;text-align:right;font-family:monospace;">{{ fmt(Number(r.SoldPrice)) }}</td>
+              <td style="padding:8px 12px;text-align:right;font-family:monospace;color:var(--green);">{{ fmt(Number(r.NetSales)) }}</td>
               <td style="padding:8px 12px;white-space:nowrap;">{{ r.Payment || '—' }}</td>
               <td style="padding:8px 12px;white-space:nowrap;">{{ r.Staff || '—' }}</td>
             </tr>
@@ -168,8 +168,8 @@ load('today');
           <tfoot>
             <tr style="background:var(--surface2);font-weight:700;">
               <td colspan="6" style="padding:9px 12px;font-size:12px;">Total</td>
-              <td style="padding:9px 12px;text-align:right;font-family:monospace;font-size:12px;">₱{{ totals.totalSold.toLocaleString() }}</td>
-              <td style="padding:9px 12px;text-align:right;font-family:monospace;font-size:12px;color:var(--green);">₱{{ totals.totalNet.toLocaleString() }}</td>
+              <td style="padding:9px 12px;text-align:right;font-family:monospace;font-size:12px;">{{ fmt(totals.totalSold) }}</td>
+              <td style="padding:9px 12px;text-align:right;font-family:monospace;font-size:12px;color:var(--green);">{{ fmt(totals.totalNet) }}</td>
               <td colspan="2" />
             </tr>
           </tfoot>

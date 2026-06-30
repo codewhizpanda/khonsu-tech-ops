@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik, vl } from '@/utils.js';
+import { ik, vl, fmt } from '@/utils.js';
 import { COLORS } from '@/data.js';
 import { useToast } from '@/composables/useToast.js';
 import { tryPush } from '@/composables/useSync.js';
@@ -260,7 +260,7 @@ const freebieEntries = computed(() =>
           <div style="font-size:12px;color:var(--muted);margin-top:2px;">{{ b.mainName }} + {{ b.addonName }}</div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;">
-          <div style="font-size:15px;font-weight:700;color:var(--accent);font-family:monospace;">₱{{ b.price.toLocaleString() }}</div>
+          <div style="font-size:15px;font-weight:700;color:var(--accent);font-family:monospace;">{{ fmt(b.price) }}</div>
           <span @click="deleteBundle(b.id)" style="cursor:pointer;color:var(--muted);font-size:18px;" title="Delete">✕</span>
         </div>
       </div>

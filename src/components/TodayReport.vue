@@ -86,7 +86,7 @@ function handleCloseDay() {
         </div>
         <div style="border-top:1px solid var(--border);margin:8px 0;"></div>
         <div style="display:flex;justify-content:space-between;font-size:13px;">
-          <span>Target:</span><span class="mono">₱{{ store.settings.dailyTarget.toLocaleString() }}</span>
+          <span>Target:</span><span class="mono">{{ fmt(store.settings.dailyTarget) }}</span>
         </div>
       </div>
     </div>
@@ -123,9 +123,9 @@ function handleCloseDay() {
               <td style="padding:9px 12px;color:var(--muted);font-size:11px;">{{ r.variant || '—' }}</td>
               <td style="padding:9px 12px;">{{ r.color || '—' }}</td>
               <td style="padding:9px 12px;text-align:right;font-family:monospace;">{{ r.qty }}</td>
-              <td style="padding:9px 12px;text-align:right;font-family:monospace;">₱{{ r.srp.toLocaleString() }}</td>
-              <td style="padding:9px 12px;text-align:right;font-family:monospace;font-weight:700;color:var(--accent);">₱{{ (r.soldPrice * r.qty).toLocaleString() }}</td>
-              <td style="padding:9px 12px;text-align:right;font-family:monospace;" :style="{ color: (r.netSales || 0) >= 0 ? 'var(--green)' : 'var(--red)' }">₱{{ (r.netSales || 0).toLocaleString() }}</td>
+              <td style="padding:9px 12px;text-align:right;font-family:monospace;">{{ fmt(r.srp) }}</td>
+              <td style="padding:9px 12px;text-align:right;font-family:monospace;font-weight:700;color:var(--accent);">{{ fmt(r.soldPrice * r.qty) }}</td>
+              <td style="padding:9px 12px;text-align:right;font-family:monospace;" :style="{ color: (r.netSales || 0) >= 0 ? 'var(--green)' : 'var(--red)' }">{{ fmt(r.netSales) }}</td>
               <td style="padding:9px 12px;">{{ r.payment }}</td>
               <td style="padding:9px 12px;white-space:nowrap;">
                 <span v-if="r.soldType === 'Walk-in'" style="color:var(--green);font-weight:600;">Walk-in</span>

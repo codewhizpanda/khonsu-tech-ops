@@ -38,5 +38,5 @@ export function fmtSheetDate(raw) {
 export function fmt(n) {
   return n === 0 || !n
     ? 'N/A'
-    : '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    : '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

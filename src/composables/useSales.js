@@ -301,7 +301,7 @@ export function useSales() {
     const met   = net >= store.settings.dailyTarget;
     const sm = {};
     rows.forEach(r => { sm[r.staff] = (sm[r.staff] || 0) + (r.netSales || 0); });
-    const f = n => n.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    const f = n => Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     const win = window.open('', '_blank');
     win.document.write(`<!DOCTYPE html><html><head><title>Daily Sales Report</title><style>
@@ -318,7 +318,7 @@ td{padding:7px 8px;border-bottom:1px solid #eee;font-size:11px;}.tf td{backgroun
 <div style="text-align:right;"><strong style="font-size:14px;">DAILY SALES REPORT</strong><br><span style="color:#666;">${date}</span></div></div>
 <table><thead><tr><th>SO#</th><th>Code</th><th>Item</th><th>Variant</th><th>Color</th><th>Qty</th><th>Unit Price</th><th>SRP</th><th>Sold Price</th><th>Pasa</th><th>Discount</th><th>Net Sales</th><th>Payment</th><th>Walk-in</th><th>Pasa</th><th>Staff</th></tr></thead><tbody>`);
     rows.forEach(r => {
-      win.document.write(`<tr><td>${r.so||'—'}</td><td>${r.bundle||'—'}</td><td>${r.itemName}</td><td>${r.variant||''}</td><td>${r.color||''}</td><td>${r.qty}</td><td>P ${(r.unitPrice||0).toLocaleString()}</td><td>P ${r.srp.toLocaleString()}</td><td>P ${(r.soldPrice*r.qty).toLocaleString()}</td><td>${r.pasaPrice>0?'P '+r.pasaPrice.toLocaleString():'N/A'}</td><td>${r.discount>0?'P '+r.discount.toLocaleString():'N/A'}</td><td>P ${(r.netSales||0).toLocaleString()}</td><td>${r.payment}</td><td style="text-align:center;">${r.soldType==='Walk-in'?'✓':''}</td><td style="text-align:center;">${r.soldType==='Pasa'?'✓ '+(r.promoter||''):''}</td><td>${r.staff}</td></tr>`);
+      win.document.write(`<tr><td>${r.so||'—'}</td><td>${r.bundle||'—'}</td><td>${r.itemName}</td><td>${r.variant||''}</td><td>${r.color||''}</td><td>${r.qty}</td><td>P ${f(r.unitPrice||0)}</td><td>P ${f(r.srp)}</td><td>P ${f(r.soldPrice*r.qty)}</td><td>${r.pasaPrice>0?'P '+f(r.pasaPrice):'N/A'}</td><td>${r.discount>0?'P '+f(r.discount):'N/A'}</td><td>P ${f(r.netSales||0)}</td><td>${r.payment}</td><td style="text-align:center;">${r.soldType==='Walk-in'?'✓':''}</td><td style="text-align:center;">${r.soldType==='Pasa'?'✓ '+(r.promoter||''):''}</td><td>${r.staff}</td></tr>`);
     });
     win.document.write(`</tbody><tfoot><tr class="tf"><td colspan="8">TOTAL</td><td>P ${f(gross)}</td><td></td><td>${disc>0?'P '+f(disc):'N/A'}</td><td>P ${f(net)}</td><td colspan="4"></td></tr></tfoot></table>
 <div class="grid">
@@ -334,7 +334,7 @@ td{padding:7px 8px;border-bottom:1px solid #eee;font-size:11px;}.tf td{backgroun
 <div class="box"><h3>STAFF'S SALES</h3>
 ${Object.entries(sm).map(([n,v])=>`<div class="row"><span>${n}:</span><span>P ${f(v)}</span></div>`).join('')}
 <hr style="margin:8px 0;">
-<div class="row"><strong>DAILY TARGET: ${store.settings.dailyTarget.toLocaleString()}.00 Php</strong></div>
+<div class="row"><strong>DAILY TARGET: P ${f(store.settings.dailyTarget)}</strong></div>
 </div>
 <div class="box"><h3>RESULT</h3><div style="font-size:14px;font-weight:700;">${met?'MET':'BELOW TARGET'}</div></div>
 </div>

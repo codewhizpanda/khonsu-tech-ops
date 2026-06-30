@@ -133,7 +133,7 @@ function getFormData() {
     <div style="background:var(--accent);border-radius:12px;padding:14px 18px;margin-bottom:14px;color:#fff;display:flex;justify-content:space-between;align-items:center;">
       <div>
         <div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:1px;">{{ isPromoMode ? 'Promotion Price' : isPasa && pasa > 0 ? 'Customer Total (incl. Pasa)' : 'SRP' }}</div>
-        <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;">₱{{ displayPrice.toLocaleString() }}</div>
+        <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;">{{ fmt(displayPrice) }}</div>
       </div>
       <div v-if="bundleCode" style="text-align:right;">
         <div style="font-size:10px;opacity:.7;">{{ isPromoMode ? 'Promo' : 'Bundle' }} Code</div>
@@ -234,7 +234,7 @@ function getFormData() {
     <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
       <span style="font-size:13px;font-weight:600;color:var(--muted);">{{ isPromoMode ? 'Promotion Price' : isPasa && pasa > 0 ? 'Customer Total (incl. Pasa)' : 'Total Amount' }}</span>
       <span style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);">
-        {{ total > 0 ? '₱' + total.toLocaleString() : '—' }}
+        {{ total > 0 ? fmt(total) : '—' }}
       </span>
     </div>
 
