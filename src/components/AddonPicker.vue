@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useAppStore } from '@/stores/state.js';
 import { ik, fmt } from '@/utils.js';
 
@@ -10,6 +10,20 @@ const ADDON_PRODUCT_CATS = ['Earbuds', 'Smart Watch', 'Power Bank', 'Others'];
 const addonCatOpts = ['All', ...ADDON_PRODUCT_CATS];
 const localCat = ref('All');
 const pickerOpen = ref(false);
+
+const addonDisplay = ref('');
+
+// Sync display when a new addon is selected or removed (watches the reference, not soldPrice property)
+watch(() => store.selectedAddon, (v) => {
+  addonDisplay.value = v?.soldPrice > 0 ? v.soldPrice.toFixed(2) : '';
+}, { immediate: true });
+
+function onAddonPriceBlur() {
+  if (!store.selectedAddon) return;
+  const v = parseFloat(addonDisplay.value) || 0;
+  store.selectedAddon.soldPrice = v;
+  addonDisplay.value = v > 0 ? v.toFixed(2) : '';
+}
 
 const addonProducts = computed(() =>
   store.PRODUCTS.filter(p =>
@@ -83,11 +97,13 @@ function selectAddon(p) {
       </div>
       <span style="color:var(--muted);">₱</span>
       <input
-        :value="store.selectedAddon.soldPrice"
-        type="number"
-        min="0"
+        :value="addonDisplay"
+        type="text"
+        inputmode="decimal"
+        placeholder="0.00"
         style="width:90px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:monospace;font-weight:600;color:var(--accent);background:var(--bg);outline:none;"
-        @input="store.selectedAddon.soldPrice = parseFloat($event.target.value) || 0"
+        @input="addonDisplay = $event.target.value; if(store.selectedAddon) store.selectedAddon.soldPrice = parseFloat($event.target.value) || 0"
+        @blur="onAddonPriceBlur"
       />
       <span @click="emit('remove')" style="cursor:pointer;color:var(--muted);font-size:20px;line-height:1;">&times;</span>
     </div>

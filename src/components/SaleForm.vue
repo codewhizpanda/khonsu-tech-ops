@@ -35,6 +35,19 @@ const promoAddonKey  = ref('');
 const promoAddonName = ref('');
 
 const customerFormRef = ref(null);
+const pasaDisplay = ref('');
+
+// Preview total: for IMEI products use at least 1 unit even if none selected yet
+const previewTotal = computed(() => {
+  const q = isImei.value ? Math.max(store.selectedIMEIs.length, 1) : qty.value;
+  return displayPrice.value * q + (store.selectedAddon?.soldPrice || 0);
+});
+
+function onPasaBlur() {
+  const v = parseFloat(pasaDisplay.value) || 0;
+  pasa.value = v;
+  pasaDisplay.value = v > 0 ? v.toFixed(2) : '';
+}
 
 const freebieProduct = computed(() => {
   if (!product.value) return null;
@@ -73,6 +86,7 @@ function resetForm(init) {
   soldType.value   = d.soldType   ?? 'Walk-in';
   promoter.value   = d.promoter   ?? '';
   pasa.value       = d.pasa       ?? 0;
+  pasaDisplay.value = (d.pasa || 0) > 0 ? Number(d.pasa).toFixed(2) : '';
   payment.value    = d.payment    ?? 'Cash';
   bundleCode.value  = d.bundleCode  ?? '';
   bundlePrice.value = d.bundlePrice ?? 0;
@@ -142,8 +156,8 @@ function getFormData() {
               <span v-if="product.storage" style="font-size:11px;padding:2px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--muted);font-weight:600;">{{ product.storage }}</span>
             </div>
             <div style="display:flex;align-items:baseline;gap:6px;">
-              <span style="font-size:11px;color:var(--muted);">SRP</span>
-              <span style="font-size:16px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);">{{ fmt(product.srp) }}</span>
+              <span style="font-size:11px;color:var(--muted);">{{ isPasa && pasa > 0 ? 'Customer Price' : 'SRP' }}</span>
+              <span style="font-size:16px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);">{{ fmt(displayPrice) }}</span>
             </div>
           </div>
         </div>
@@ -222,7 +236,15 @@ function getFormData() {
               </div>
               <div>
                 <label class="form-label">Pasa Price (₱ added to SRP)</label>
-                <input v-model.number="pasa" type="number" min="0" placeholder="0" class="form-control" />
+                <input
+                  :value="pasaDisplay"
+                  type="text"
+                  inputmode="decimal"
+                  placeholder="0.00"
+                  class="form-control"
+                  @input="pasaDisplay = $event.target.value; pasa = parseFloat($event.target.value) || 0"
+                  @blur="onPasaBlur"
+                />
               </div>
             </div>
           </template>
@@ -298,7 +320,7 @@ function getFormData() {
             <div style="border-top:1px solid var(--border);margin:10px 0;"></div>
             <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;">
               <span style="font-size:13px;font-weight:700;">Total Amount</span>
-              <span style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);">{{ total > 0 ? fmt(total) : '—' }}</span>
+              <span style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);">{{ previewTotal > 0 ? fmt(previewTotal) : '—' }}</span>
             </div>
             <button class="btn btn-primary btn-lg" style="width:100%;margin-bottom:8px;" @click="emit('go-review', getFormData())">
               Review Sale
