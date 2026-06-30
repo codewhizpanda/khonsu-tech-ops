@@ -39,7 +39,7 @@ function selectCat(c) {
       </div>
       <button @click="filterOpen = true"
         :style="store.activeCat !== 'All' ? 'background:var(--accent);border-color:var(--accent);color:#fff;' : ''"
-        style="flex-shrink:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;position:relative;"
+        style="flex-shrink:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;position:relative;color:var(--text);"
         :title="store.activeCat">
         <svg class="ic" aria-hidden="true"><use href="#ic-filter"/></svg>
       </button>
