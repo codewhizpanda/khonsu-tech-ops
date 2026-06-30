@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/state.js';
 import { vl, fmt } from '@/utils.js';
 
@@ -13,6 +13,8 @@ const grandTotal = computed(() =>
 );
 
 const custInfo = computed(() => items.value.find(i => i.customer)?.customer || null);
+
+const confirmed = ref(false);
 </script>
 
 <template>
@@ -126,14 +128,26 @@ const custInfo = computed(() => items.value.find(i => i.customer)?.customer || n
       <div class="mono" style="font-size:28px;font-weight:800;">{{ fmt(grandTotal) }}</div>
     </div>
 
+    <!-- Confirmation checkbox -->
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;margin-bottom:12px;cursor:pointer;"
+      :style="confirmed ? 'border-color:var(--green);background:#f0fdf4;' : ''">
+      <input type="checkbox" v-model="confirmed" style="width:18px;height:18px;margin-top:1px;accent-color:var(--green);flex-shrink:0;cursor:pointer;" />
+      <span style="font-size:13px;font-weight:600;" :style="confirmed ? 'color:#15803d;' : 'color:var(--text);'">
+        Customer has reviewed and approved all items, prices, and the total amount shown above.
+      </span>
+    </label>
+
     <!-- Actions -->
     <div style="display:flex;gap:10px;margin-bottom:10px;">
       <button class="btn btn-outline btn-lg" style="flex:1;" @click="emit('add-item')">
         <svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em;" aria-hidden="true"><use href="#ic-plus"/></svg>
         Add Item
       </button>
-      <button class="btn btn-success btn-lg" style="flex:2;" @click="emit('confirm')">
-        ✓ Customer Approved — Confirm {{ items.length }} Item{{ items.length !== 1 ? 's' : '' }}
+      <button class="btn btn-success btn-lg" style="flex:2;"
+        :disabled="!confirmed"
+        :style="!confirmed ? 'opacity:.45;cursor:not-allowed;' : ''"
+        @click="confirmed && emit('confirm')">
+        ✓ Confirm {{ items.length }} Item{{ items.length !== 1 ? 's' : '' }}
       </button>
     </div>
   </div>
