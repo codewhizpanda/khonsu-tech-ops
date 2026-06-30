@@ -70,6 +70,11 @@ nav {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 1px 4px rgba(27, 46, 107, .06);
+  position: sticky;
+  top: 52px;
+  z-index: 99;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ic {
@@ -406,7 +411,7 @@ select.form-control { cursor: pointer; }
 
 /* Sale form two-column layout */
 .sale-layout { display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start; }
-.sale-sidebar { position:sticky;top:80px; }
+.sale-sidebar { position:sticky;top:120px; }
 .step-card { background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px; }
 .step-hd { display:flex;align-items:center;gap:10px;margin-bottom:14px; }
 .step-num { width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
@@ -421,7 +426,6 @@ select.form-control { cursor: pointer; }
 }
 
 @media (max-width: 600px) {
-  nav { overflow-x: auto; }
   .pgrid { grid-template-columns: repeat(2, 1fr); }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
   .g3 { grid-template-columns: 1fr 1fr; }
