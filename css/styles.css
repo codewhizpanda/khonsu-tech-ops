@@ -187,7 +187,8 @@ input[readonly] { background: var(--surface2); color: var(--muted); cursor: defa
 .cat-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .sw { position: relative; margin-bottom: 14px; }
-.sw input { padding-left: 36px; }
+.sw input { width:100%;padding:9px 12px 9px 36px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;font-family:inherit; }
+.sw input:focus { border-color: var(--accent2); }
 .si {
   position: absolute;
   left: 12px;

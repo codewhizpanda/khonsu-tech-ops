@@ -41,13 +41,8 @@ function selectCat(c) {
 
     <!-- Search -->
     <div v-if="store.activeCat !== 'Promotions'" class="sw" style="margin-bottom:14px;">
-      <svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--muted);flex-shrink:0;" aria-hidden="true"><use href="#ic-search"/></svg>
-      <input
-        v-model="store.searchQ"
-        type="text"
-        placeholder="Search products…"
-        style="border:none;background:transparent;outline:none;flex:1;font-size:14px;color:var(--text);"
-      />
+      <span class="si"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></span>
+      <input v-model="store.searchQ" type="text" placeholder="Search products…" />
     </div>
 
     <!-- Promotions grid -->
