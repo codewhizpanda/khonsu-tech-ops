@@ -36,7 +36,6 @@ const promoAddonName = ref('');
 
 const customerFormRef = ref(null);
 
-// Freebie for this product (regular, not promo)
 const freebieProduct = computed(() => {
   if (!product.value) return null;
   const key = store.productFreebies[ik(product.value)];
@@ -60,7 +59,6 @@ const total = computed(() =>
   displayPrice.value * effectiveQty.value + (store.selectedAddon?.soldPrice || 0)
 );
 
-// Resize colors array when qty changes (non-IMEI)
 watch(qty, n => {
   if (isImei.value) return;
   const cur = colors.value;
@@ -68,7 +66,6 @@ watch(qty, n => {
   else colors.value = cur.slice(0, n);
 });
 
-// Reset/restore form whenever selectedProduct changes (handled via key in SalesPage)
 function resetForm(init) {
   const d = init || {};
   qty.value        = d.qty        ?? 1;
@@ -117,137 +114,238 @@ function getFormData() {
 
 <template>
   <div v-if="product">
-    <!-- Header -->
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-      <button class="btn btn-outline btn-sm" @click="emit('back')" style="padding:6px 12px;">
-        <svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em;" aria-hidden="true"><use href="#ic-arrow-left"/></svg>
-        Back
-      </button>
+
+    <!-- Back button -->
+    <button class="btn btn-outline btn-sm" @click="emit('back')" style="margin-bottom:16px;display:inline-flex;align-items:center;gap:6px;">
+      <svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-arrow-left"/></svg>
+      Back to Catalog
+    </button>
+
+    <!-- Two-column grid -->
+    <div class="sale-layout">
+
+      <!-- ── Left column ── -->
       <div>
-        <div style="font-size:18px;font-weight:800;color:var(--text);">{{ product.name }}</div>
-        <div style="font-size:12px;color:var(--muted);">{{ isPromoMode ? 'Promotion' : product.category }}{{ vl(product) ? ' — ' + vl(product) : '' }}</div>
-      </div>
-    </div>
 
-    <!-- Price card -->
-    <div style="background:var(--accent);border-radius:12px;padding:14px 18px;margin-bottom:14px;color:#fff;display:flex;justify-content:space-between;align-items:center;">
-      <div>
-        <div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:1px;">{{ isPromoMode ? 'Promotion Price' : isPasa && pasa > 0 ? 'Customer Total (incl. Pasa)' : 'SRP' }}</div>
-        <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;">{{ fmt(displayPrice) }}</div>
-      </div>
-      <div v-if="bundleCode" style="text-align:right;">
-        <div style="font-size:10px;opacity:.7;">{{ isPromoMode ? 'Promo' : 'Bundle' }} Code</div>
-        <div style="font-family:monospace;font-size:13px;font-weight:700;">{{ bundleCode }}</div>
-      </div>
-    </div>
-
-    <!-- Form card -->
-    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;">
-
-      <!-- Variant (read-only) -->
-      <div v-if="vl(product)" style="margin-bottom:14px;">
-        <label class="form-label">Variant</label>
-        <input :value="vl(product)" readonly class="form-control" style="background:var(--bg);color:var(--muted);cursor:default;" />
-      </div>
-
-      <!-- IMEI picker (phones/tablets) -->
-      <div v-if="isImei" style="margin-bottom:14px;">
-        <label class="form-label">Select Unit (IMEI)</label>
-        <IMEIPicker />
-      </div>
-
-      <!-- Qty + Colors (non-IMEI) -->
-      <div v-if="!isImei" style="margin-bottom:14px;">
-        <label class="form-label">Quantity</label>
-        <input v-model.number="qty" type="number" min="1" class="form-control" style="width:100px;" />
-      </div>
-
-      <div v-if="!isImei" style="margin-bottom:14px;">
-        <label class="form-label">Color{{ qty > 1 ? 's' : '' }}</label>
-        <datalist id="colorOpts">
-          <option v-for="c in colorOpts" :key="c" :value="c" />
-        </datalist>
-        <div v-if="qty <= 1">
-          <input v-model="colors[0]" type="text" list="colorOpts" placeholder="e.g. Midnight Black" class="form-control" />
-        </div>
-        <div v-else>
-          <div v-for="(_, i) in colors" :key="i" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <span style="font-size:12px;color:var(--muted);min-width:52px;">Unit {{ i + 1 }}</span>
-            <input v-model="colors[i]" type="text" list="colorOpts" placeholder="e.g. Midnight Black" class="form-control" style="flex:1;" />
+        <!-- Product hero card -->
+        <div class="step-card" style="display:flex;gap:16px;align-items:flex-start;">
+          <div style="width:72px;height:72px;border-radius:10px;background:var(--surface2);flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+            <svg style="width:32px;height:32px;fill:none;stroke:var(--muted);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-box"/></svg>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <span style="display:inline-block;font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-light);padding:2px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">
+              {{ isPromoMode ? 'Promotion' : product.category }}
+            </span>
+            <div style="font-size:20px;font-weight:800;color:var(--text);line-height:1.2;margin-bottom:6px;">{{ product.name }}</div>
+            <div v-if="vl(product)" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+              <span v-if="product.ram" style="font-size:11px;padding:2px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--muted);font-weight:600;">{{ product.ram }}</span>
+              <span v-if="product.storage" style="font-size:11px;padding:2px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--muted);font-weight:600;">{{ product.storage }}</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:6px;">
+              <span style="font-size:11px;color:var(--muted);">SRP</span>
+              <span style="font-size:16px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);">{{ fmt(product.srp) }}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Sold Type -->
-      <div style="margin-bottom:14px;">
-        <label class="form-label">Sold Type</label>
-        <select v-model="soldType" class="form-control">
-          <option>Walk-in</option>
-          <option>Pasa</option>
-        </select>
-      </div>
+        <!-- Step 1: Select Unit (IMEI) or Quantity & Color -->
+        <div class="step-card">
+          <div class="step-hd">
+            <div class="step-num">1</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;">{{ isImei ? 'Select Unit' : 'Quantity &amp; Color' }}</div>
+              <div v-if="isImei" style="font-size:12px;color:var(--muted);">
+                {{ store.units.filter(u => u.productKey === ik(product) && u.status === 'available').length }} unit(s) available
+              </div>
+            </div>
+          </div>
 
-      <!-- Promoter (Pasa only) -->
-      <div v-if="isPasa" style="margin-bottom:14px;">
-        <label class="form-label">Promoter Name</label>
-        <input v-model="promoter" type="text" placeholder="Promoter / referral name" class="form-control" />
-      </div>
+          <!-- IMEI picker -->
+          <IMEIPicker v-if="isImei" />
 
-      <!-- Pasa markup (Pasa only) — intentionally outside qty/color section -->
-      <div v-if="isPasa" style="margin-bottom:14px;">
-        <label class="form-label">Pasa Price (₱ added to SRP)</label>
-        <input v-model.number="pasa" type="number" min="0" placeholder="0" class="form-control" />
-      </div>
-
-      <!-- Payment -->
-      <div style="margin-bottom:14px;">
-        <label class="form-label">Payment Method</label>
-        <select v-model="payment" class="form-control">
-          <option>Cash</option>
-          <option>Card</option>
-          <option>Home Credit</option>
-        </select>
-      </div>
-
-      <!-- Addon section (only for ADDON_CATS and not in promo mode) -->
-      <div v-if="hasAddon && !isPromoMode" style="margin-bottom:14px;">
-        <label class="form-label">Add-on / Accessory</label>
-        <AddonPicker @select="onAddonSelect" @remove="onAddonRemove" />
-      </div>
-
-      <!-- Promo addon / Freebie display -->
-      <div v-if="isPromoMode || freebieProduct" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f0fdf4;border-radius:8px;margin-bottom:14px;">
-        <svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;color:var(--green);" aria-hidden="true"><use href="#ic-gift"/></svg>
-        <div style="flex:1;font-size:13px;font-weight:600;color:#15803d;">
-          {{ isPromoMode ? promoAddonName + ' — included in Promotion' : freebieProduct?.name + ' (' + freebieProduct?.category + ')' }}
+          <!-- Non-IMEI: Qty + Colors -->
+          <template v-else>
+            <div style="margin-bottom:14px;">
+              <label class="form-label">Quantity</label>
+              <input v-model.number="qty" type="number" min="1" class="form-control" style="width:100px;" />
+            </div>
+            <div>
+              <label class="form-label">Color{{ qty > 1 ? 's' : '' }}</label>
+              <datalist id="colorOpts">
+                <option v-for="c in colorOpts" :key="c" :value="c" />
+              </datalist>
+              <div v-if="qty <= 1">
+                <input v-model="colors[0]" type="text" list="colorOpts" placeholder="e.g. Midnight Black" class="form-control" />
+              </div>
+              <div v-else>
+                <div v-for="(_, i) in colors" :key="i" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                  <span style="font-size:12px;color:var(--muted);min-width:52px;">Unit {{ i + 1 }}</span>
+                  <input v-model="colors[i]" type="text" list="colorOpts" placeholder="e.g. Midnight Black" class="form-control" style="flex:1;" />
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
-        <div style="font-size:11px;font-weight:700;color:#15803d;background:#dcfce7;padding:2px 8px;border-radius:10px;">FREE</div>
+
+        <!-- Steps 2 + 3: Sold Type + Payment side by side -->
+        <div class="step-card">
+          <div class="g2" style="gap:16px;">
+            <div>
+              <div class="step-hd" style="margin-bottom:10px;">
+                <div class="step-num">2</div>
+                <div style="font-size:14px;font-weight:700;">Sold Type</div>
+              </div>
+              <select v-model="soldType" class="form-control">
+                <option>Walk-in</option>
+                <option>Pasa</option>
+              </select>
+            </div>
+            <div>
+              <div class="step-hd" style="margin-bottom:10px;">
+                <div class="step-num">3</div>
+                <div style="font-size:14px;font-weight:700;">Payment</div>
+              </div>
+              <select v-model="payment" class="form-control">
+                <option>Cash</option>
+                <option>Card</option>
+                <option>Home Credit</option>
+              </select>
+            </div>
+          </div>
+          <!-- Pasa fields -->
+          <template v-if="isPasa">
+            <div style="border-top:1px solid var(--border);margin:14px 0;"></div>
+            <div class="g2" style="gap:12px;">
+              <div>
+                <label class="form-label">Promoter Name</label>
+                <input v-model="promoter" type="text" placeholder="Promoter / referral name" class="form-control" />
+              </div>
+              <div>
+                <label class="form-label">Pasa Price (₱ added to SRP)</label>
+                <input v-model.number="pasa" type="number" min="0" placeholder="0" class="form-control" />
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Step 4: Add-on / Accessory -->
+        <div v-if="hasAddon || isPromoMode || freebieProduct" class="step-card">
+          <div class="step-hd">
+            <div class="step-num">4</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;">Add-on / Accessory
+                <span style="font-size:12px;color:var(--muted);font-weight:400;"> (Optional)</span>
+              </div>
+            </div>
+          </div>
+          <AddonPicker v-if="hasAddon && !isPromoMode" @select="onAddonSelect" @remove="onAddonRemove" />
+          <!-- Promo / freebie badge -->
+          <div v-if="isPromoMode || freebieProduct" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f0fdf4;border-radius:8px;">
+            <svg style="width:16px;height:16px;fill:none;stroke:var(--green);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use href="#ic-gift"/></svg>
+            <div style="flex:1;font-size:13px;font-weight:600;color:#15803d;">
+              {{ isPromoMode ? promoAddonName + ' — included in Promotion' : freebieProduct?.name + ' (' + freebieProduct?.category + ')' }}
+            </div>
+            <div style="font-size:11px;font-weight:700;color:#15803d;background:#dcfce7;padding:2px 8px;border-radius:10px;">FREE</div>
+          </div>
+        </div>
+
+        <!-- Step 5: Customer Info -->
+        <div v-if="!store.saleRows.length" class="step-card">
+          <div class="step-hd">
+            <div class="step-num">5</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;">Customer Info
+                <span style="font-size:12px;color:var(--muted);font-weight:400;"> (Optional)</span>
+              </div>
+            </div>
+          </div>
+          <CustomerForm ref="customerFormRef" />
+        </div>
+
       </div>
 
-      <!-- Customer info (first item only) -->
-      <div v-if="!store.saleRows.length">
-        <CustomerForm ref="customerFormRef" />
+      <!-- ── Right sidebar ── -->
+      <div class="sale-sidebar">
+
+        <!-- Sale Summary card -->
+        <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px;">
+          <!-- Dark header -->
+          <div style="background:var(--accent);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <svg style="width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-cart"/></svg>
+              <span style="font-size:14px;font-weight:700;color:#fff;">Sale Summary</span>
+            </div>
+            <span style="font-size:11px;background:rgba(255,255,255,.18);color:#fff;padding:2px 8px;border-radius:10px;font-weight:600;">
+              {{ effectiveQty }} item{{ effectiveQty !== 1 ? 's' : '' }}
+            </span>
+          </div>
+          <!-- Body -->
+          <div style="padding:14px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span style="font-size:12px;color:var(--muted);">{{ isPromoMode ? 'Promo Price' : isPasa && pasa > 0 ? 'Customer Total' : 'Unit Price' }}</span>
+              <span style="font-size:13px;font-weight:600;font-family:'JetBrains Mono',monospace;">{{ fmt(displayPrice) }}</span>
+            </div>
+            <div v-if="store.selectedAddon" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span style="font-size:12px;color:var(--muted);">{{ store.selectedAddon.product.name }}</span>
+              <span style="font-size:13px;font-weight:600;font-family:'JetBrains Mono',monospace;">{{ fmt(store.selectedAddon.soldPrice) }}</span>
+            </div>
+            <div v-if="isPromoMode || freebieProduct" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span style="font-size:12px;color:var(--green);">
+                {{ isPromoMode ? promoAddonName : freebieProduct?.name }}
+              </span>
+              <span style="font-size:11px;font-weight:700;color:#15803d;background:#dcfce7;padding:1px 7px;border-radius:8px;">FREE</span>
+            </div>
+            <div style="border-top:1px solid var(--border);margin:10px 0;"></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;">
+              <span style="font-size:13px;font-weight:700;">Total Amount</span>
+              <span style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);">{{ total > 0 ? fmt(total) : '—' }}</span>
+            </div>
+            <button class="btn btn-primary btn-lg" style="width:100%;margin-bottom:8px;" @click="emit('go-review', getFormData())">
+              Review Sale
+              <svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em;" aria-hidden="true"><use href="#ic-arrow-right"/></svg>
+            </button>
+            <button class="btn btn-outline btn-lg" style="width:100%;" @click="emit('add-another', getFormData())">
+              <svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em;" aria-hidden="true"><use href="#ic-plus"/></svg>
+              Add Another Item
+            </button>
+          </div>
+        </div>
+
+        <!-- Product Details card -->
+        <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;overflow:hidden;">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+            <span style="font-size:13px;font-weight:700;">Product Details</span>
+          </div>
+          <div style="padding:4px 0;">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">
+              <svg style="width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use href="#ic-tag"/></svg>
+              <span style="font-size:12px;color:var(--muted);min-width:64px;flex-shrink:0;">Category</span>
+              <span style="font-size:13px;font-weight:600;flex:1;text-align:right;">{{ product.category }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">
+              <svg style="width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use href="#ic-box"/></svg>
+              <span style="font-size:12px;color:var(--muted);min-width:64px;flex-shrink:0;">Model</span>
+              <span style="font-size:13px;font-weight:600;flex:1;text-align:right;">{{ product.name }}</span>
+            </div>
+            <div v-if="vl(product)" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">
+              <svg style="width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use href="#ic-info"/></svg>
+              <span style="font-size:12px;color:var(--muted);min-width:64px;flex-shrink:0;">Variant</span>
+              <span style="font-size:13px;font-weight:600;flex:1;text-align:right;">{{ vl(product) }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;" :style="bundleCode ? 'border-bottom:1px solid var(--border);' : ''">
+              <svg style="width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use href="#ic-tag"/></svg>
+              <span style="font-size:12px;color:var(--muted);min-width:64px;flex-shrink:0;">SRP</span>
+              <span style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;flex:1;text-align:right;color:var(--accent);">{{ fmt(product.srp) }}</span>
+            </div>
+            <div v-if="bundleCode" style="display:flex;align-items:center;gap:10px;padding:10px 16px;">
+              <svg style="width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use href="#ic-receipt"/></svg>
+              <span style="font-size:12px;color:var(--muted);min-width:64px;flex-shrink:0;">{{ isPromoMode ? 'Promo' : 'Bundle' }}</span>
+              <span style="font-size:12px;font-weight:700;font-family:monospace;flex:1;text-align:right;">{{ bundleCode }}</span>
+            </div>
+          </div>
+        </div>
+
       </div>
-    </div>
-
-    <!-- Total -->
-    <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:13px;font-weight:600;color:var(--muted);">{{ isPromoMode ? 'Promotion Price' : isPasa && pasa > 0 ? 'Customer Total (incl. Pasa)' : 'Total Amount' }}</span>
-      <span style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);">
-        {{ total > 0 ? fmt(total) : '—' }}
-      </span>
-    </div>
-
-    <!-- Actions -->
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-outline btn-lg" style="flex:1;" @click="emit('add-another', getFormData())">
-        <svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em;" aria-hidden="true"><use href="#ic-plus"/></svg>
-        Add Another Item
-      </button>
-      <button class="btn btn-primary btn-lg" style="flex:1;" @click="emit('go-review', getFormData())">
-        Review Sale
-        <svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.125em;" aria-hidden="true"><use href="#ic-arrow-right"/></svg>
-      </button>
     </div>
   </div>
 

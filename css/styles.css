@@ -404,6 +404,22 @@ select.form-control { cursor: pointer; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Sale form two-column layout */
+.sale-layout { display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start; }
+.sale-sidebar { position:sticky;top:80px; }
+.step-card { background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px; }
+.step-hd { display:flex;align-items:center;gap:10px;margin-bottom:14px; }
+.step-num { width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.imei-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:10px; }
+.imei-card { border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;background:var(--bg);transition:border-color .15s; }
+.imei-card:hover { border-color:var(--accent2); }
+.imei-card.sel { border-color:var(--accent);background:var(--accent-light); }
+
+@media (max-width: 768px) {
+  .sale-layout { grid-template-columns:1fr; }
+  .sale-sidebar { position:static; }
+}
+
 @media (max-width: 600px) {
   nav { overflow-x: auto; }
   .pgrid { grid-template-columns: repeat(2, 1fr); }
