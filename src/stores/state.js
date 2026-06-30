@@ -73,6 +73,30 @@ export const useAppStore = defineStore('app', () => {
     scriptUrl.value         = localStorage.getItem('kt_url') || '';
 
     try { syncQueue.value = JSON.parse(localStorage.getItem('kt_queue') || '[]'); } catch { syncQueue.value = []; }
+
+    // Load IMEI units and ensure dummy units exist for existing stock
+    const IMEI_CATS = new Set(['Smart Phone', 'Bar Phone', 'Tablet']);
+    try { units.value = JSON.parse(localStorage.getItem('kt_units') || '[]'); } catch { units.value = []; }
+    let dummyAdded = 0;
+    masterList.value.forEach(p => {
+      if (!IMEI_CATS.has(p.category)) return;
+      const key = ik(p);
+      const stockCount = (inventory.value[key] || {}).stock || 0;
+      const existing = units.value.filter(u => u.productKey === key && u.status === 'available').length;
+      const colors = (p.colors || '').split(',').map(c => c.trim()).filter(Boolean);
+      for (let i = 0; i < stockCount - existing; i++) {
+        const n = units.value.filter(u => u.productKey === key).length + 1;
+        units.value.push({
+          imei: 'DUMMY-' + key.replace(/[^A-Za-z0-9]/g, '') + '-' + String(n).padStart(3, '0'),
+          productKey: key, productName: p.name, color: colors[0] || '',
+          status: 'available', drNumber: 'INITIAL',
+          receivedDate: new Date().toLocaleDateString('en-PH'),
+          soNumber: null, soldDate: null, isDummy: true,
+        });
+        dummyAdded++;
+      }
+    });
+    if (dummyAdded) localStorage.setItem('kt_units', JSON.stringify(units.value));
   }
 
   return {

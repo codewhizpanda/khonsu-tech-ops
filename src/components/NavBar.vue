@@ -32,7 +32,7 @@ function logout() {
     <button class="tab" :class="{ active: isActive('/sales') }" @click="go('/sales')">
       <svg class="ic" aria-hidden="true"><use href="#ic-cart"/></svg> Log Sale
     </button>
-    <button v-if="isAdmin" class="tab" :class="{ active: isActive('/restock') }" @click="go('/restock')">
+    <button class="tab" :class="{ active: isActive('/restock') }" @click="go('/restock')">
       <svg class="ic" aria-hidden="true"><use href="#ic-truck"/></svg> Receive Stock
     </button>
     <button v-if="isAdmin" class="tab" :class="{ active: isActive('/inventory') }" @click="go('/inventory')">

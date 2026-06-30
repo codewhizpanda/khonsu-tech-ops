@@ -9,7 +9,7 @@ const routes = [
   { path: '/masterlist',component: () => import('@/views/MasterListPage.vue'),    meta: { adminOnly: true } },
   { path: '/settings',  component: () => import('@/views/SettingsPage.vue'),      meta: { adminOnly: true } },
   { path: '/setup',     component: () => import('@/views/SetupPage.vue'),         meta: { adminOnly: true } },
-  { path: '/restock',   component: () => import('@/views/RestockPage.vue'),       meta: { adminOnly: true } },
+  { path: '/restock',   component: () => import('@/views/RestockPage.vue') },
   { path: '/reports',   component: () => import('@/views/ReportsPage.vue'),       meta: { adminOnly: true } },
   { path: '/dashboard', component: () => import('@/views/DashboardPage.vue'),     meta: { adminOnly: true } },
 ];
