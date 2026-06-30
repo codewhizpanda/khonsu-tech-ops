@@ -236,6 +236,7 @@ export function useSales() {
     store.pendingItems = [];
     store.selectedIMEIs = [];
     store.currentSO = null;
+    store.saveTodayRows();
     toast('Sales Order ' + so + ' confirmed!', 'success');
     return true;
   }
@@ -245,6 +246,7 @@ export function useSales() {
     if (r && store.inventory[r.productKey]) store.inventory[r.productKey].stock += r.qty;
     store.saleRows = store.saleRows.filter(x => x.id !== id);
     store.saveInv();
+    store.saveTodayRows();
   }
 
   function generatePO(items) {
@@ -285,6 +287,7 @@ export function useSales() {
     store.saleRows = [];
     store.pendingItems = [];
     store.currentSO = null;
+    store.clearTodayRows();
     return true;
   }
 

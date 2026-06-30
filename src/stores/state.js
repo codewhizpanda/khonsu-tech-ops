@@ -43,6 +43,17 @@ export const useAppStore = defineStore('app', () => {
     localStorage.setItem('kt_pos', JSON.stringify(purchaseOrders.value));
   }
 
+  function saveTodayRows() {
+    localStorage.setItem('kt_today', JSON.stringify({
+      date: new Date().toDateString(),
+      rows: saleRows.value,
+    }));
+  }
+
+  function clearTodayRows() {
+    localStorage.removeItem('kt_today');
+  }
+
   function initApp() {
     const savedML = localStorage.getItem('kt_ml');
     if (savedML) {
@@ -73,6 +84,14 @@ export const useAppStore = defineStore('app', () => {
     scriptUrl.value         = localStorage.getItem('kt_url') || '';
 
     try { syncQueue.value = JSON.parse(localStorage.getItem('kt_queue') || '[]'); } catch { syncQueue.value = []; }
+
+    // Restore today's confirmed sales from localStorage (survives page refresh)
+    try {
+      const saved = JSON.parse(localStorage.getItem('kt_today') || 'null');
+      if (saved && saved.date === new Date().toDateString() && Array.isArray(saved.rows)) {
+        saleRows.value = saved.rows;
+      }
+    } catch { /* ignore */ }
 
     // Load IMEI units and ensure dummy units exist for existing stock
     const IMEI_CATS = new Set(['Smart Phone', 'Bar Phone', 'Tablet']);
@@ -105,6 +124,6 @@ export const useAppStore = defineStore('app', () => {
     selectedProduct, selectedAddon, activeCat, searchQ, addonCat,
     bundleCounter, purchaseOrders, scriptUrl, editingPOId, syncQueue,
     units, selectedIMEIs, receiveDraftItems, restockProduct,
-    saveInv, saveSettings, savePOs, initApp,
+    saveInv, saveSettings, savePOs, saveTodayRows, clearTodayRows, initApp,
   };
 });

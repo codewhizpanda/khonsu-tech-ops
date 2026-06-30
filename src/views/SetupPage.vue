@@ -98,7 +98,34 @@ function doPost(e) {
 function doGet(e) {
   if (e.parameter.action === 'ping')          return respond({ status: 'ok' });
   if (e.parameter.action === 'getMasterList') return getMasterList();
+  if (e.parameter.action === 'getSales')      return getSales();
   return respond({ status: 'Khonsu Tech OPS running' });
+}
+
+function getSales() {
+  const sh = SS.getSheetByName('Sales Log');
+  if (!sh) return respond({ sales: [] });
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return respond({ sales: [] });
+  // Column order matches initSheets + logSale:
+  // 0:Date 1:SO/Bundle 2:Item 3:Variant 4:Color 5:Qty 6:UnitPrice 7:SRP
+  // 8:SoldPrice 9:PasaPrice 10:Discount 11:NetSales 12:Payment 13:SoldType 14:Promoter 15:Staff
+  const sales = data.slice(1).map(function(r) {
+    var d = r[0];
+    return {
+      Date:      d instanceof Date ? d.toISOString() : String(d),
+      SO:        String(r[1] || ''),
+      ItemName:  String(r[2] || ''),
+      Variant:   String(r[3] || ''),
+      Color:     String(r[4] || ''),
+      Qty:       Number(r[5]) || 0,
+      SoldPrice: Number(r[8]) || 0,
+      NetSales:  Number(r[11]) || 0,
+      Payment:   String(r[12] || ''),
+      Staff:     String(r[15] || ''),
+    };
+  });
+  return respond({ sales: sales });
 }
 
 function getMasterList() {
@@ -139,7 +166,7 @@ function logSale(d) {
   const inv = SS.getSheetByName('Inventory');
   const rows = d.rows || [];
   rows.forEach(r => {
-    sh.appendRow([d.date, r.promoCode || '', r.itemName, r.variant || '', r.color || '',
+    sh.appendRow([d.date, r.so || r.bundle || '', r.itemName, r.variant || '', r.color || '',
       r.qty, r.unitPrice, r.srp, r.soldPrice, r.pasaPrice || 0,
       r.discount || 0, r.netSales || 0, r.payment, r.soldType, r.promoter || '', r.staff]);
   });
