@@ -21,28 +21,23 @@ const filteredProducts = computed(() => {
   );
 });
 
-function selectCat(c) {
-  store.activeCat = c;
+function onCatChange() {
   store.searchQ = '';
 }
 </script>
 
 <template>
   <div>
-    <!-- Category filter -->
-    <div id="catFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-      <button
-        v-for="c in cats"
-        :key="c"
-        :class="['cat-btn', store.activeCat === c && 'active']"
-        @click="selectCat(c)"
-      >{{ c }}</button>
-    </div>
-
-    <!-- Search -->
-    <div v-if="store.activeCat !== 'Promotions'" class="sw" style="margin-bottom:14px;">
-      <span class="si"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></span>
-      <input v-model="store.searchQ" type="text" placeholder="Search products…" />
+    <!-- Category + Search row -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <select v-model="store.activeCat" @change="onCatChange"
+        style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;cursor:pointer;flex-shrink:0;font-family:inherit;">
+        <option v-for="c in cats" :key="c" :value="c">{{ c }}</option>
+      </select>
+      <div v-if="store.activeCat !== 'Promotions'" class="sw" style="margin-bottom:0;flex:1;">
+        <span class="si"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></span>
+        <input v-model="store.searchQ" type="text" placeholder="Search…" />
+      </div>
     </div>
 
     <!-- Promotions grid -->
