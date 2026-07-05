@@ -51,6 +51,7 @@ async function submitPin() {
   pinError.value    = '';
   try {
     let valid = false;
+    let offline = false;
     if (store.scriptUrl) {
       const res  = await fetch(store.scriptUrl, {
         method: 'POST',
@@ -58,13 +59,22 @@ async function submitPin() {
         body: JSON.stringify({ action: 'verifyPin', pin }),
       });
       const data = await res.json();
-      valid = data.valid === true;
+      if (data.error) {
+        // Server doesn't recognize verifyPin (e.g. not yet added to the deployed script) —
+        // fall back to the local default-PIN check instead of always rejecting.
+        offline = true;
+        valid = (await localHash(pin)) === DEFAULT_PIN_HASH;
+      } else {
+        valid = data.valid === true;
+      }
     } else {
+      offline = true;
       valid = (await localHash(pin)) === DEFAULT_PIN_HASH;
     }
     if (valid) {
       closePinModal();
       login('Admin');
+      if (offline && store.scriptUrl) toast('Server PIN check unavailable — logged in with offline PIN', 'success');
     } else {
       pinError.value = 'Incorrect PIN. Try again.';
       pinValue.value = '';
