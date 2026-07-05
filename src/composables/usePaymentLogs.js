@@ -77,6 +77,32 @@ export function usePaymentLogs() {
     store.savePaymentLogs();
   }
 
+  // Force-overwrites the Payment Logs sheet with everything currently in local storage.
+  // Recovery valve for entries that were created locally but never made it to Sheets
+  // (e.g. a stale Apps Script deployment silently rejected them).
+  async function pushAllPaymentLogs() {
+    if (!store.scriptUrl) { toast('Connect Google Sheets first in Setup', 'error'); return false; }
+    const rows = store.paymentLogs.map(l => ([
+      l.id, l.date, l.store, l.method, l.amount, l.reference || '',
+      l.staff || '', l.origin || 'manual', l.notes || '', l.status || 'pending',
+      l.creditedDate || '', l.creditedBy || '',
+    ]));
+    try {
+      const res  = await fetch(store.scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'pushPaymentLogs', rows }),
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      toast('Pushed ' + rows.length + ' payment log(s) to Sheets', 'success');
+      return true;
+    } catch (e) {
+      toast('Push failed: ' + (e.message || 'check connection'), 'error');
+      return false;
+    }
+  }
+
   // Merge in entries logged from other devices, so Admin can see/reconcile everything.
   // Skipped while the offline queue is non-empty, to avoid clobbering un-synced local edits.
   async function pullPaymentLogs() {
@@ -109,5 +135,5 @@ export function usePaymentLogs() {
     } catch { /* non-critical */ }
   }
 
-  return { addPaymentLog, logSalePayments, addBisenLog, markCredited, revertPending, removeLog, pullPaymentLogs };
+  return { addPaymentLog, logSalePayments, addBisenLog, markCredited, revertPending, removeLog, pullPaymentLogs, pushAllPaymentLogs };
 }

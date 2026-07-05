@@ -74,12 +74,13 @@ export async function processQueue() {
 
   for (const item of q) {
     try {
-      const res = await fetch(store.scriptUrl, {
+      const res  = await fetch(store.scriptUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: item.action, ...item.payload }),
       });
-      await res.json();
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
     } catch {
       item.attempts = (item.attempts || 0) + 1;
       failed.push(item);

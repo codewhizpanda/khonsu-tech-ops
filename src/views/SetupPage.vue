@@ -93,6 +93,7 @@ function doPost(e) {
     if (d.action === 'pushMasterList')      return pushMasterList(d);
     if (d.action === 'logPayment')          return logPayment(d);
     if (d.action === 'updatePaymentStatus') return updatePaymentStatus(d);
+    if (d.action === 'pushPaymentLogs')     return pushPaymentLogs(d);
     return respond({ error: 'Unknown action' });
   } catch (err) { return respond({ error: err.toString() }); }
 }
@@ -240,6 +241,14 @@ function updatePaymentStatus(d) {
     }
   }
   return respond({ status: 'Payment status updated' });
+}
+
+function pushPaymentLogs(d) {
+  const sh = SS.getSheetByName('Payment Logs');
+  if (!sh) return respond({ error: 'No Payment Logs sheet' });
+  if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+  (d.rows || []).forEach(r => sh.appendRow(r));
+  return respond({ status: 'Payment Logs pushed', count: (d.rows || []).length });
 }
 
 function getPaymentLogs() {
