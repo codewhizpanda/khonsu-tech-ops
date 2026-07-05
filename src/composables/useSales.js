@@ -2,6 +2,7 @@ import { useAppStore } from '@/stores/state.js';
 import { ik, vl, fmt } from '@/utils.js';
 import { useToast } from '@/composables/useToast.js';
 import { tryPush } from '@/composables/useSync.js';
+import { usePaymentLogs } from '@/composables/usePaymentLogs.js';
 
 export const IMEI_CATS = new Set(['Smart Phone', 'Bar Phone', 'Tablet']);
 export const isImeiProduct = p => p && IMEI_CATS.has(p.category);
@@ -223,6 +224,7 @@ export function useSales() {
     store.saveInv();
     const newRows = store.saleRows.slice(rowStart);
     tryPush('logSale', { date: new Date().toISOString(), rows: newRows });
+    usePaymentLogs().logSalePayments(so, newRows);
     if (decrements.length) {
       tryPush('updateInventoryItems', {
         items: decrements.map(d => ({

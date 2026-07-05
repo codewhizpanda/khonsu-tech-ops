@@ -12,8 +12,9 @@ const drawerOpen = ref(false);
 
 const navItems = computed(() => {
   const items = [
-    { path: '/sales',      icon: 'ic-cart',      label: 'Log Sale' },
-    { path: '/restock',    icon: 'ic-truck',     label: 'Receive Stock' },
+    { path: '/sales',         icon: 'ic-cart',         label: 'Log Sale' },
+    { path: '/restock',       icon: 'ic-truck',        label: 'Receive Stock' },
+    { path: '/payment-logs',  icon: 'ic-credit-card',  label: 'Payment Logs' },
   ];
   if (isAdmin.value) {
     items.push(

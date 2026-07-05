@@ -86,19 +86,22 @@ const SS = SpreadsheetApp.getActiveSpreadsheet();
 function doPost(e) {
   try {
     const d = JSON.parse(e.postData.contents);
-    if (d.action === 'init')           return initSheets();
-    if (d.action === 'logSale')        return logSale(d);
-    if (d.action === 'logPO')          return logPO(d);
-    if (d.action === 'pushInventory')  return pushInventory(d);
-    if (d.action === 'pushMasterList') return pushMasterList(d);
+    if (d.action === 'init')                return initSheets();
+    if (d.action === 'logSale')             return logSale(d);
+    if (d.action === 'logPO')               return logPO(d);
+    if (d.action === 'pushInventory')       return pushInventory(d);
+    if (d.action === 'pushMasterList')      return pushMasterList(d);
+    if (d.action === 'logPayment')          return logPayment(d);
+    if (d.action === 'updatePaymentStatus') return updatePaymentStatus(d);
     return respond({ error: 'Unknown action' });
   } catch (err) { return respond({ error: err.toString() }); }
 }
 
 function doGet(e) {
-  if (e.parameter.action === 'ping')          return respond({ status: 'ok' });
-  if (e.parameter.action === 'getMasterList') return getMasterList();
-  if (e.parameter.action === 'getSales')      return getSales();
+  if (e.parameter.action === 'ping')             return respond({ status: 'ok' });
+  if (e.parameter.action === 'getMasterList')    return getMasterList();
+  if (e.parameter.action === 'getSales')         return getSales();
+  if (e.parameter.action === 'getPaymentLogs')   return getPaymentLogs();
   return respond({ status: 'Khonsu Tech OPS running' });
 }
 
@@ -147,7 +150,8 @@ function initSheets() {
     'Sales Log': ['Date','Bundle','Item','Variant','Color','Qty','Unit Price','SRP',
                   'Sold Price','Pasa Price','Discount','Net Sales','Payment','Sold Type','Promoter','Staff'],
     'Inventory': ['Category','Model','RAM','Storage','Colors','Unit Price','SRP','Stock','Reorder Point'],
-    'Purchase Orders': ['PO Number','Date','Supplier','Items','Quantities','Status','Approver']
+    'Purchase Orders': ['PO Number','Date','Supplier','Items','Quantities','Status','Approver'],
+    'Payment Logs': ['ID','Date','Store','Method','Amount','Reference','Staff','Origin','Notes','Status','Credited Date','Credited By']
   };
   Object.entries(tabs).forEach(([name, headers]) => {
     let sh = SS.getSheetByName(name);
@@ -212,6 +216,55 @@ function pushMasterList(d) {
   if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
   (d.rows || []).forEach(r => sh.appendRow(r));
   return respond({ status: 'Master List pushed', count: (d.rows || []).length });
+}
+
+function logPayment(d) {
+  const sh = SS.getSheetByName('Payment Logs');
+  if (!sh) return respond({ error: 'No Payment Logs sheet' });
+  sh.appendRow([d.id, d.date, d.store, d.method, d.amount || 0, d.reference || '',
+    d.staff || '', d.origin || 'manual', d.notes || '', d.status || 'pending',
+    d.creditedDate || '', d.creditedBy || '']);
+  return respond({ status: 'Payment logged' });
+}
+
+function updatePaymentStatus(d) {
+  const sh = SS.getSheetByName('Payment Logs');
+  if (!sh) return respond({ error: 'No Payment Logs sheet' });
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.id)) {
+      sh.getRange(i + 1, 10).setValue(d.status || 'pending');
+      sh.getRange(i + 1, 11).setValue(d.creditedDate || '');
+      sh.getRange(i + 1, 12).setValue(d.creditedBy || '');
+      break;
+    }
+  }
+  return respond({ status: 'Payment status updated' });
+}
+
+function getPaymentLogs() {
+  const sh = SS.getSheetByName('Payment Logs');
+  if (!sh) return respond({ logs: [] });
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return respond({ logs: [] });
+  const logs = data.slice(1).map(function(r) {
+    var d = r[1];
+    return {
+      ID: String(r[0] || ''),
+      Date: d instanceof Date ? d.toISOString() : String(d || ''),
+      Store: String(r[2] || ''),
+      Method: String(r[3] || ''),
+      Amount: Number(r[4]) || 0,
+      Reference: String(r[5] || ''),
+      Staff: String(r[6] || ''),
+      Origin: String(r[7] || ''),
+      Notes: String(r[8] || ''),
+      Status: String(r[9] || 'pending'),
+      CreditedDate: String(r[10] || ''),
+      CreditedBy: String(r[11] || ''),
+    };
+  });
+  return respond({ logs: logs });
 }
 
 function respond(data) {
