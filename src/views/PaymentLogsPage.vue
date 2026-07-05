@@ -262,16 +262,18 @@ function submitEdit() {
         </span>
       </div>
 
-      <!-- Actions: Edit/Delete available to all staff; credited toggle is Admin-only -->
+      <!-- Actions: Edit/Delete only on manually-created entries, available to all staff; credited toggle is Admin-only -->
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;">
-        <button class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:4px;" @click="openEdit(log)">
-          <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-edit"/></svg>
-          Edit
-        </button>
-        <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);display:inline-flex;align-items:center;gap:4px;" @click="confirmRemove(log)">
-          <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-trash"/></svg>
-          Delete
-        </button>
+        <template v-if="log.origin === 'manual'">
+          <button class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:4px;" @click="openEdit(log)">
+            <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-edit"/></svg>
+            Edit
+          </button>
+          <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);display:inline-flex;align-items:center;gap:4px;" @click="confirmRemove(log)">
+            <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-trash"/></svg>
+            Delete
+          </button>
+        </template>
         <template v-if="isAdmin">
           <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Mark as Credited</button>
           <button v-else class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert to Pending</button>
