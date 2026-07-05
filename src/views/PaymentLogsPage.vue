@@ -1,12 +1,12 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useAppStore } from '@/stores/state.js';
 import { fmt } from '@/utils.js';
-import { usePaymentLogs, BISEN_METHODS } from '@/composables/usePaymentLogs.js';
+import { usePaymentLogs, BISEN_METHODS, ITEL_METHODS } from '@/composables/usePaymentLogs.js';
 
 const store   = useAppStore();
 const isAdmin = computed(() => store.currentUser === 'Admin');
-const { addBisenLog, markCredited, revertPending, removeLog, pullPaymentLogs, pushAllPaymentLogs } = usePaymentLogs();
+const { addBisenLog, editLog, markCredited, revertPending, removeLog, pullPaymentLogs, pushAllPaymentLogs } = usePaymentLogs();
 
 onMounted(() => { pullPaymentLogs(); });
 
@@ -48,6 +48,19 @@ const totals = computed(() => {
   };
 });
 
+// Accounts Receivable (ITEL) — non-cash sale proceeds owed to ITEL until credited.
+// Accounts Payable (Bisen) — Maya terminal proceeds ITEL is holding for Bisen until paid out.
+const arAp = computed(() => {
+  const itel  = store.paymentLogs.filter(l => l.store === 'ITEL');
+  const bisen = store.paymentLogs.filter(l => l.store === 'Bisen');
+  return {
+    arPending:  itel.filter(l => l.status === 'pending').reduce((s, l) => s + l.amount, 0),
+    arReceived: itel.filter(l => l.status === 'credited').reduce((s, l) => s + l.amount, 0),
+    apPending:  bisen.filter(l => l.status === 'pending').reduce((s, l) => s + l.amount, 0),
+    apSettled:  bisen.filter(l => l.status === 'credited').reduce((s, l) => s + l.amount, 0),
+  };
+});
+
 function fmtDate(iso) {
   const d = new Date(iso);
   if (isNaN(d)) return iso || '—';
@@ -77,6 +90,42 @@ function submitAdd() {
 function confirmRemove(log) {
   if (confirm('Delete this payment log entry?')) removeLog(log.id);
 }
+
+// Edit an existing entry (auto or manual)
+const editModal     = ref(false);
+const editId        = ref(null);
+const editStoreVal  = ref('ITEL');
+const editMethodVal = ref('');
+const editAmountVal = ref(null);
+const editRefVal    = ref('');
+const editNotesVal  = ref('');
+
+const editMethodOptions = computed(() => editStoreVal.value === 'Bisen' ? BISEN_METHODS : ITEL_METHODS);
+
+watch(editStoreVal, () => {
+  if (!editMethodOptions.value.includes(editMethodVal.value)) editMethodVal.value = editMethodOptions.value[0];
+});
+
+function openEdit(log) {
+  editId.value        = log.id;
+  editStoreVal.value  = log.store;
+  editMethodVal.value = log.method;
+  editAmountVal.value = log.amount;
+  editRefVal.value    = log.reference || '';
+  editNotesVal.value  = log.notes || '';
+  editModal.value     = true;
+}
+
+function submitEdit() {
+  const ok = editLog(editId.value, {
+    storeName: editStoreVal.value,
+    method: editMethodVal.value,
+    amount: editAmountVal.value,
+    reference: editRefVal.value.trim(),
+    notes: editNotesVal.value.trim(),
+  });
+  if (ok) editModal.value = false;
+}
 </script>
 
 <template>
@@ -99,6 +148,20 @@ function confirmRemove(log) {
       ITEL's non-cash sales (Card / Home Credit) are logged here automatically when a sale is confirmed.
       Use the button above to log Bisen's Maya terminal transactions (Card / QRPh) by hand.
     </p>
+
+    <!-- Accounts Receivable (ITEL) / Accounts Payable (Bisen) — Admin only -->
+    <div v-if="isAdmin" class="g2" style="margin-bottom:16px;">
+      <div class="sc" style="border-left:4px solid var(--accent);">
+        <div class="sl">Accounts Receivable — ITEL</div>
+        <div class="sv">{{ fmt(arAp.arPending) }}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Received to date: <strong style="color:var(--green);">{{ fmt(arAp.arReceived) }}</strong></div>
+      </div>
+      <div class="sc" style="border-left:4px solid #7e22ce;">
+        <div class="sl">Accounts Payable — Bisen</div>
+        <div class="sv" style="color:#7e22ce;">{{ fmt(arAp.apPending) }}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Settled to date: <strong style="color:var(--green);">{{ fmt(arAp.apSettled) }}</strong></div>
+      </div>
+    </div>
 
     <!-- Summary cards -->
     <div class="g3" style="margin-bottom:16px;">
@@ -199,14 +262,20 @@ function confirmRemove(log) {
         </span>
       </div>
 
-      <!-- Admin actions -->
-      <div v-if="isAdmin" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
-        <button v-if="log.origin === 'manual'" class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);display:inline-flex;align-items:center;gap:4px;" @click="confirmRemove(log)">
+      <!-- Actions: Edit/Delete available to all staff; credited toggle is Admin-only -->
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:4px;" @click="openEdit(log)">
+          <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-edit"/></svg>
+          Edit
+        </button>
+        <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);display:inline-flex;align-items:center;gap:4px;" @click="confirmRemove(log)">
           <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-trash"/></svg>
           Delete
         </button>
-        <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Mark as Credited</button>
-        <button v-else class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert to Pending</button>
+        <template v-if="isAdmin">
+          <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Mark as Credited</button>
+          <button v-else class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert to Pending</button>
+        </template>
       </div>
     </div>
 
@@ -236,6 +305,43 @@ function confirmRemove(log) {
           <div style="display:flex;justify-content:flex-end;gap:10px;">
             <button class="btn btn-outline" @click="addModal = false">Cancel</button>
             <button class="btn btn-primary" @click="submitAdd">Log Payment</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Edit payment log modal -->
+    <Teleport to="body">
+      <div v-if="editModal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto;" @click.self="editModal = false">
+        <div style="background:var(--surface);border-radius:16px;padding:24px;width:100%;max-width:440px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+            <h3 style="font-size:16px;font-weight:800;margin:0;">Edit Payment Log</h3>
+            <span @click="editModal = false" style="cursor:pointer;font-size:22px;color:var(--muted);">&times;</span>
+          </div>
+
+          <label class="form-label">Store</label>
+          <select v-model="editStoreVal" class="form-control" style="margin-bottom:14px;">
+            <option value="ITEL">ITEL</option>
+            <option value="Bisen">Bisen</option>
+          </select>
+
+          <label class="form-label">Payment Method</label>
+          <select v-model="editMethodVal" class="form-control" style="margin-bottom:14px;">
+            <option v-for="m in editMethodOptions" :key="m">{{ m }}</option>
+          </select>
+
+          <label class="form-label">Amount (₱)</label>
+          <input v-model.number="editAmountVal" type="number" min="0" step="0.01" placeholder="0.00" class="form-control" style="margin-bottom:14px;" />
+
+          <label class="form-label">Reference (optional)</label>
+          <input v-model="editRefVal" type="text" placeholder="SO number / terminal reference" class="form-control" style="margin-bottom:14px;" />
+
+          <label class="form-label">Notes (optional)</label>
+          <textarea v-model="editNotesVal" rows="2" class="form-control" style="margin-bottom:18px;resize:vertical;"></textarea>
+
+          <div style="display:flex;justify-content:flex-end;gap:10px;">
+            <button class="btn btn-outline" @click="editModal = false">Cancel</button>
+            <button class="btn btn-primary" @click="submitEdit">Save Changes</button>
           </div>
         </div>
       </div>

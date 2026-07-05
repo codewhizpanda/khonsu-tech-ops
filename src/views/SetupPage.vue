@@ -94,6 +94,8 @@ function doPost(e) {
     if (d.action === 'logPayment')          return logPayment(d);
     if (d.action === 'updatePaymentStatus') return updatePaymentStatus(d);
     if (d.action === 'pushPaymentLogs')     return pushPaymentLogs(d);
+    if (d.action === 'editPaymentLog')      return editPaymentLog(d);
+    if (d.action === 'deletePaymentLog')    return deletePaymentLog(d);
     return respond({ error: 'Unknown action' });
   } catch (err) { return respond({ error: err.toString() }); }
 }
@@ -249,6 +251,36 @@ function pushPaymentLogs(d) {
   if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
   (d.rows || []).forEach(r => sh.appendRow(r));
   return respond({ status: 'Payment Logs pushed', count: (d.rows || []).length });
+}
+
+function editPaymentLog(d) {
+  const sh = SS.getSheetByName('Payment Logs');
+  if (!sh) return respond({ error: 'No Payment Logs sheet' });
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.id)) {
+      sh.getRange(i + 1, 3).setValue(d.store || '');
+      sh.getRange(i + 1, 4).setValue(d.method || '');
+      sh.getRange(i + 1, 5).setValue(d.amount || 0);
+      sh.getRange(i + 1, 6).setValue(d.reference || '');
+      sh.getRange(i + 1, 9).setValue(d.notes || '');
+      break;
+    }
+  }
+  return respond({ status: 'Payment log updated' });
+}
+
+function deletePaymentLog(d) {
+  const sh = SS.getSheetByName('Payment Logs');
+  if (!sh) return respond({ error: 'No Payment Logs sheet' });
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.id)) {
+      sh.deleteRow(i + 1);
+      break;
+    }
+  }
+  return respond({ status: 'Payment log deleted' });
 }
 
 function getPaymentLogs() {

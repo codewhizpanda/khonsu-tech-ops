@@ -4,6 +4,8 @@ import { tryPush } from '@/composables/useSync.js';
 
 // Payment methods available for Bisen's Maya terminal (card/QRPh acceptance).
 export const BISEN_METHODS = ['Maya - Card', 'Maya - QRPh'];
+// Payment methods available for ITEL's own non-cash sales.
+export const ITEL_METHODS = ['Card', 'Home Credit'];
 
 export function usePaymentLogs() {
   const store = useAppStore();
@@ -72,9 +74,25 @@ export function usePaymentLogs() {
     toast('Reverted to pending', 'success');
   }
 
+  function editLog(id, { storeName, method, amount, reference = '', notes = '' }) {
+    const log = store.paymentLogs.find(p => p.id === id);
+    if (!log) return false;
+    if (!storeName || !method || !(Number(amount) > 0)) { toast('Enter a store, method and amount', 'error'); return false; }
+    log.store     = storeName;
+    log.method    = method;
+    log.amount    = Number(amount) || 0;
+    log.reference = reference;
+    log.notes     = notes;
+    store.savePaymentLogs();
+    tryPush('editPaymentLog', { id, store: log.store, method: log.method, amount: log.amount, reference: log.reference, notes: log.notes });
+    toast('Payment log updated', 'success');
+    return true;
+  }
+
   function removeLog(id) {
     store.paymentLogs = store.paymentLogs.filter(p => p.id !== id);
     store.savePaymentLogs();
+    tryPush('deletePaymentLog', { id });
   }
 
   // Force-overwrites the Payment Logs sheet with everything currently in local storage.
@@ -135,5 +153,5 @@ export function usePaymentLogs() {
     } catch { /* non-critical */ }
   }
 
-  return { addPaymentLog, logSalePayments, addBisenLog, markCredited, revertPending, removeLog, pullPaymentLogs, pushAllPaymentLogs };
+  return { addPaymentLog, logSalePayments, addBisenLog, editLog, markCredited, revertPending, removeLog, pullPaymentLogs, pushAllPaymentLogs };
 }
