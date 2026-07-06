@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik, fmt } from '@/utils.js';
+import { ik, fmt, compareProducts } from '@/utils.js';
 
 const emit = defineEmits(['select', 'remove']);
 const store = useAppStore();
@@ -29,7 +29,7 @@ const addonProducts = computed(() =>
   store.PRODUCTS.filter(p =>
     ADDON_PRODUCT_CATS.includes(p.category) &&
     (localCat.value === 'All' || p.category === localCat.value)
-  )
+  ).sort(compareProducts)
 );
 
 function selectAddon(p) {

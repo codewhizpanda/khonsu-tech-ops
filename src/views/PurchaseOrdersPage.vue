@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik, vl } from '@/utils.js';
+import { ik, vl, compareProducts } from '@/utils.js';
 import { useToast } from '@/composables/useToast.js';
 import { tryPush } from '@/composables/useSync.js';
 
@@ -30,7 +30,7 @@ const newQty     = ref(1);
 const newColor   = ref('');
 
 const productDatalist = computed(() =>
-  store.masterList.filter(p => !p.obsolete).map(p => {
+  store.masterList.filter(p => !p.obsolete).sort(compareProducts).map(p => {
     const v = (p.ram && p.storage) ? ' (' + p.ram + '/' + p.storage + ')' : '';
     return p.name + v;
   })

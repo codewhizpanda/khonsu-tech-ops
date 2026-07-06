@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik, vl, fmt } from '@/utils.js';
+import { ik, vl, fmt, compareProducts } from '@/utils.js';
 
 const store = useAppStore();
 
@@ -11,12 +11,14 @@ const filterOpen  = ref(false);
 const filterOptions = ['All', 'OK', 'Low Stock', 'Out of Stock'];
 
 const allRows = computed(() =>
-  store.masterList.map(p => {
-    const inv = store.inventory[ik(p)] || { stock: 0, reorder: 1 };
-    const isOut = inv.stock <= 0;
-    const isLow = !isOut && inv.stock <= inv.reorder;
-    return { p, inv, isOut, isLow };
-  })
+  store.masterList
+    .map(p => {
+      const inv = store.inventory[ik(p)] || { stock: 0, reorder: 1 };
+      const isOut = inv.stock <= 0;
+      const isLow = !isOut && inv.stock <= inv.reorder;
+      return { p, inv, isOut, isLow };
+    })
+    .sort((a, b) => compareProducts(a.p, b.p))
 );
 
 const rows = computed(() => {

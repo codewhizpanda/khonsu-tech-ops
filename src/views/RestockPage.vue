@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik, vl } from '@/utils.js';
+import { ik, vl, compareProducts } from '@/utils.js';
 import { useToast } from '@/composables/useToast.js';
 import { tryPush } from '@/composables/useSync.js';
 import { isImeiProduct } from '@/composables/useSales.js';
@@ -25,7 +25,7 @@ const qtyInput      = ref(1);
 const isImei = computed(() => isImeiProduct(selectedProd.value));
 
 const productOptions = computed(() =>
-  store.PRODUCTS.map(p => {
+  store.PRODUCTS.slice().sort(compareProducts).map(p => {
     const v = p.ram && p.storage ? ' ' + p.ram + '/' + p.storage : '';
     return p.name + v;
   })

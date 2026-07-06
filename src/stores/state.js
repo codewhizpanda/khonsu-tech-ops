@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { DEF, COLORS } from '@/data.js';
-import { ik } from '@/utils.js';
+import { ik, UNIT_CATEGORIES } from '@/utils.js';
 
 export const useAppStore = defineStore('app', () => {
   const currentUser   = ref(localStorage.getItem('kt_user') || null);
@@ -107,11 +107,10 @@ export const useAppStore = defineStore('app', () => {
     } catch { /* ignore */ }
 
     // Load IMEI units and ensure dummy units exist for existing stock
-    const IMEI_CATS = new Set(['Smart Phone', 'Bar Phone', 'Tablet']);
     try { units.value = JSON.parse(localStorage.getItem('kt_units') || '[]'); } catch { units.value = []; }
     let dummyAdded = 0;
     masterList.value.forEach(p => {
-      if (!IMEI_CATS.has(p.category)) return;
+      if (!UNIT_CATEGORIES.has(p.category)) return;
       const key = ik(p);
       const stockCount = (inventory.value[key] || {}).stock || 0;
       const existing = units.value.filter(u => u.productKey === key && u.status === 'available').length;

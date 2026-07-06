@@ -35,6 +35,18 @@ export function fmtSheetDate(raw) {
   return d ? d.toLocaleDateString('en-PH') : String(raw || '—');
 }
 
+// Units (IMEI-tracked: phones/tablets) sort before accessories; alphabetical
+// by name within each group. Shared by Master List, Inventory, and any other
+// product list/picker that should present items in this order.
+export const UNIT_CATEGORIES = new Set(['Bar Phone', 'Smart Phone', 'Tablet']);
+
+export function compareProducts(a, b) {
+  const groupA = UNIT_CATEGORIES.has(a.category) ? 0 : 1;
+  const groupB = UNIT_CATEGORIES.has(b.category) ? 0 : 1;
+  if (groupA !== groupB) return groupA - groupB;
+  return a.name.localeCompare(b.name);
+}
+
 export function fmt(n) {
   return n === 0 || !n
     ? 'N/A'

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik, vl, fmt } from '@/utils.js';
+import { ik, vl, fmt, compareProducts } from '@/utils.js';
 import { COLORS } from '@/data.js';
 import { useToast } from '@/composables/useToast.js';
 import { tryPush } from '@/composables/useSync.js';
@@ -26,7 +26,8 @@ const filteredRows = computed(() => {
         (filterStatus.value === 'Active'   && !p.obsolete) ||
         (filterStatus.value === 'Obsolete' &&  p.obsolete);
       return matchSearch && matchFilter;
-    });
+    })
+    .sort((a, b) => compareProducts(a.p, b.p));
 });
 
 function toggleObs(i) {
@@ -97,10 +98,10 @@ const nbMainKey = ref('');
 const nbAddonKey= ref('');
 
 const phoneProducts = computed(() =>
-  store.masterList.filter(p => !p.obsolete && ['Smart Phone', 'Tablet', 'Bar Phone'].includes(p.category))
+  store.masterList.filter(p => !p.obsolete && ['Smart Phone', 'Tablet', 'Bar Phone'].includes(p.category)).sort(compareProducts)
 );
 const accessoryProducts = computed(() =>
-  store.masterList.filter(p => !p.obsolete && ['Earbuds', 'Smart Watch', 'Power Bank', 'Others'].includes(p.category))
+  store.masterList.filter(p => !p.obsolete && ['Earbuds', 'Smart Watch', 'Power Bank', 'Others'].includes(p.category)).sort(compareProducts)
 );
 
 function openBundleModal() {

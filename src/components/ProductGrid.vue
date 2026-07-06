@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik, vl, fmt } from '@/utils.js';
+import { ik, vl, fmt, compareProducts } from '@/utils.js';
 import ProductCard from '@/components/ProductCard.vue';
 
 const emit = defineEmits(['open-detail', 'open-bundle']);
@@ -19,7 +19,7 @@ const filteredProducts = computed(() => {
   return store.PRODUCTS.filter(p =>
     (store.activeCat === 'All' || p.category === store.activeCat) &&
     (p.name + ' ' + vl(p)).toLowerCase().includes(store.searchQ.toLowerCase())
-  );
+  ).sort(compareProducts);
 });
 
 function selectCat(c) {
