@@ -155,6 +155,7 @@ function getSales() {
   // Column order matches initSheets + logSale:
   // 0:Date 1:SO/Bundle 2:Item 3:Variant 4:Color 5:Qty 6:UnitPrice 7:SRP
   // 8:SoldPrice 9:PasaPrice 10:Discount 11:NetSales 12:Payment 13:SoldType 14:Promoter 15:Staff 16:SaleID 17:IMEI
+  // 18:BundleCode 19:IsAddon 20:IsPromotion 21:CustomerName 22:CustomerContact 23:CustomerEmail
   const sales = data.slice(1).map(function(r) {
     var d = r[0];
     return {
@@ -176,6 +177,12 @@ function getSales() {
       Promoter:  String(r[14] || ''),
       Staff:     String(r[15] || ''),
       IMEI:      String(r[17] || ''),
+      BundleCode:      String(r[18] || ''),
+      IsAddon:         String(r[19] || '') === 'true',
+      IsPromotion:     String(r[20] || '') === 'true',
+      CustomerName:    String(r[21] || ''),
+      CustomerContact: String(r[22] || ''),
+      CustomerEmail:   String(r[23] || ''),
     };
   });
   return respond({ sales: sales });
@@ -198,14 +205,16 @@ function getMasterList() {
 function initSheets() {
   const tabs = {
     'Sales Log': ['Date','Bundle','Item','Variant','Color','Qty','Unit Price','SRP',
-                  'Sold Price','Pasa Price','Discount','Net Sales','Payment','Sold Type','Promoter','Staff','Sale ID','IMEI'],
+                  'Sold Price','Pasa Price','Discount','Net Sales','Payment','Sold Type','Promoter','Staff','Sale ID','IMEI',
+                  'Bundle Code','Is Addon','Is Promotion','Customer Name','Customer Contact','Customer Email'],
     'Inventory': ['Category','Model','RAM','Storage','Colors','Unit Price','SRP','Stock','Reorder Point'],
     'Purchase Orders': ['PO Number','Date','Supplier','Items','Quantities','Status','Approver'],
+    'PO Items': ['POID','ItemName','Qty','Color'],
     'Payment Logs': ['ID','Date','Store','Method','Amount','Reference','Staff','Origin','Notes','Status','Credited Date','Credited By'],
     'Promotions': ['BundleID','Name','Price','MainProductKey','MainProductName','AddonProductKey','AddonProductName'],
     'Freebies': ['MainProductKey','FreebieProductKey','MainProductName','FreebieProductName'],
     'Settings': ['Key','Value'],
-    'Units': ['IMEI','ProductKey','ProductName','Color','Status','DRNumber','ReceivedDate','SONumber','SoldDate'],
+    'Units': ['IMEI','ProductKey','ProductName','Color','Status','DRNumber','ReceivedDate','SONumber','SoldDate','IsDummy'],
     'Issue Log': ['ID','Date','LastSeen','Type','Action','QueueID','Message','Context','Attempts','Status','ResolvedDate','ResolvedBy'],
   };
   Object.entries(tabs).forEach(([name, headers]) => {
@@ -240,7 +249,9 @@ function logSale(d) {
     sh.appendRow([d.date, r.so || r.bundle || '', r.itemName, r.variant || '', r.color || '',
       r.qty, r.unitPrice, r.srp, r.soldPrice, r.pasaPrice || 0,
       r.discount || 0, r.netSales || 0, r.payment, r.soldType, r.promoter || '', r.staff, String(r.id || ''),
-      (r.imeis || []).join(', ')]);
+      (r.imeis || []).join(', '),
+      r.bundle || '', r.isAddon ? 'true' : 'false', r.isPromotion ? 'true' : 'false',
+      r.customer ? (r.customer.name || '') : '', r.customer ? (r.customer.contact || '') : '', r.customer ? (r.customer.email || '') : '']);
   });
   if (inv) {
     const data = inv.getDataRange().getValues();
@@ -272,7 +283,22 @@ function logPO(d) {
   const items = (d.items || []).map(i => i.name).join(', ');
   const qtys  = (d.items || []).map(i => i.qty).join(', ');
   sh.appendRow([d.id, d.date, d.supplier, items, qtys, d.status || 'Pending', d.approver]);
+  savePOItems(d.id, d.items || []);
   return respond({ status: 'PO logged' });
+}
+
+// Normalized child table for PO line items (POID, ItemName, Qty, Color) — the
+// 'Items'/'Quantities' columns on Purchase Orders stay as a human-readable
+// summary; this is the queryable source of truth. Replaces any existing rows
+// for the given PO so re-saving an edited PO doesn't leave stale line items.
+function savePOItems(poId, items) {
+  const sh = SS.getSheetByName('PO Items');
+  if (!sh) return;
+  const data = sh.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === String(poId)) sh.deleteRow(i + 1);
+  }
+  (items || []).forEach(it => sh.appendRow([poId, it.name, it.qty, it.color || '']));
 }
 
 function pushInventory(d) {
@@ -320,6 +346,7 @@ function savePO(d) {
   const itemsStr = JSON.stringify(items);
   const qtysStr  = items.map(i => i.qty).join(', ');
   const data = sh.getDataRange().getValues();
+  savePOItems(d.id, items);
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(d.id)) {
       sh.getRange(i + 1, 2, 1, 6).setValues([[d.date, d.supplier, itemsStr, qtysStr, d.status || 'pending', d.approver || '']]);
@@ -363,7 +390,7 @@ function saveUnits(d) {
   const sh = SS.getSheetByName('Units');
   if (!sh) return respond({ error: 'No Units sheet' });
   (d.units || []).forEach(u => sh.appendRow([u.imei, u.productKey, u.productName, u.color,
-    u.status || 'available', u.drNumber || '', u.receivedDate || '', u.soNumber || '', u.soldDate || '']));
+    u.status || 'available', u.drNumber || '', u.receivedDate || '', u.soNumber || '', u.soldDate || '', u.isDummy ? 'true' : 'false']));
   return respond({ status: 'Units saved', count: (d.units || []).length });
 }
 
@@ -480,15 +507,32 @@ function getAllData() {
     GlobalReorder:     getSettingValue('GlobalReorder'),
   };
 
+  const poItemsByPOID = {};
+  const poItemsSheet = SS.getSheetByName('PO Items');
+  if (poItemsSheet) {
+    const idata = poItemsSheet.getDataRange().getValues();
+    for (let i = 1; i < idata.length; i++) {
+      const poid = String(idata[i][0] || '');
+      if (!poid) continue;
+      if (!poItemsByPOID[poid]) poItemsByPOID[poid] = [];
+      poItemsByPOID[poid].push({ name: idata[i][1], qty: idata[i][2], color: idata[i][3] || '' });
+    }
+  }
+
   const purchaseOrders = [];
   const poSheet = SS.getSheetByName('Purchase Orders');
   if (poSheet) {
     const data = poSheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (!data[i][0]) continue;
-      let items = [];
-      try { items = JSON.parse(data[i][3] || '[]'); } catch (err) { items = []; }
-      purchaseOrders.push({ POID: data[i][0], Date: data[i][1], Supplier: data[i][2],
+      const poid = String(data[i][0]);
+      // Prefer the normalized PO Items rows; fall back to the legacy JSON
+      // blob in the Items column for POs saved before this tab existed.
+      let items = poItemsByPOID[poid];
+      if (!items) {
+        try { items = JSON.parse(data[i][3] || '[]'); } catch (err) { items = []; }
+      }
+      purchaseOrders.push({ POID: poid, Date: data[i][1], Supplier: data[i][2],
         Approver: data[i][6], Status: data[i][5], items: items });
     }
   }

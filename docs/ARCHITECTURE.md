@@ -418,7 +418,7 @@ Two concrete correctness bugs were fixed alongside this:
 
 ### What is NOT synced
 - `saleRows` for the *current, still-open* day are pushed per-transaction (`logSale` on every `confirmSale()`), so completed sales do reach the queue immediately — there is no separate end-of-day-only submit step in the current sales flow (unlike the legacy vanilla version's `submitDayReport()`).
-- Dummy IMEIs (`isDummy: true`) are a local backfill convenience and are never pushed to Sheets as real inventory.
+- Dummy IMEIs (`isDummy: true`) are a local backfill convenience and are never pushed to Sheets as real inventory — `initApp()`'s dummy-unit bootstrap never calls `tryPush`. The `Units` tab's `IsDummy` column (added this revision) exists so that *if* a dummy unit is ever pushed (e.g. a future admin cleanup/audit tool), it's distinguishable on the sheet — every unit `saveUnits` currently sends (from `RestockPage.vue`, real received stock only) writes `IsDummy = 'false'`.
 - `restoreTodaySales()`'s failure path is intentionally silent (no issue logged) — it's a best-effort login-time rehydration retried implicitly on every login, and logging every transient blip there would be noisy relative to its non-critical nature.
 
 ### Sync-issue and runtime-error logging (`useErrorLog.js`, `/issues`)
@@ -432,20 +432,21 @@ The Google Sheet **is** the database — there is no separate DBMS. Each tab is 
 
 ### 10.1 Tab overview
 
-All ten tabs below are created up front by `initSheets()` (i.e. the moment Setup's **Connect** succeeds, or `init` is run manually in the Apps Script editor) except `Master List`, which is only lazily created the first time `pushMasterList`/`saveProducts` runs.
+All eleven tabs below are created up front by `initSheets()` (i.e. the moment Setup's **Connect** succeeds, or `init` is run manually in the Apps Script editor) except `Master List`, which is only lazily created the first time `pushMasterList`/`saveProducts` runs.
 
 **`initSheets()` is also the schema-migration path for existing tabs, not just first-time creation.** For a tab that already has rows (real data), it compares the tab's current column count against the expected header list and appends any missing *trailing* columns' header labels — it never touches existing columns or any data row. This is what makes it safe to re-run `init`/Connect after a script update that adds a new column (e.g. `Sale ID` and `IMEI` being added to `Sales Log` in two separate revisions, onto a tab that already had months of real sales rows) — the new header cells get backfilled in place, existing rows are left exactly as they were, and running it again is a no-op. Before this, the guard was `if (sh.getLastRow() === 0)`, which only ever handled a *brand-new, completely empty* sheet — so re-running `init` on a tab that already had data silently did nothing, even after redeploying a version with new columns. Verified by executing the real extracted script against a simulated "old header + real data rows" tab: the header correctly gained the new columns, both data rows were byte-for-byte unchanged, and a second `init` call was idempotent.
 
 | Tab | Primary key | Written by | Overwrite style |
 |---|---|---|---|
-| `Sales Log` | `Sale ID` (col Q, client-generated, added this revision) | `logSale`, `voidSaleRow` | Append-only, `voidSaleRow` deletes by `Sale ID`; col R `IMEI` added same revision |
+| `Sales Log` | `Sale ID` (col Q) | `logSale`, `voidSaleRow` | Append-only, `voidSaleRow` deletes by `Sale ID`; cols S–X (`Bundle Code, Is Addon, Is Promotion, Customer Name, Customer Contact, Customer Email`) added this revision |
 | `Inventory` | none (key recomputed as `Model + " " + RAM + "/" + Storage`) | `pushInventory` (full overwrite), `updateInventoryItems`/`saveInventory` (incremental, matched by recomputed key) | Mixed |
 | `Purchase Orders` | `PO Number` | `savePO` (upsert), `updatePOStatus`, legacy `logPO` | Upsert |
+| `PO Items` | none (`POID` foreign key, one row per line item) | `savePOItems` (called from `savePO`/`logPO`) — **new this revision** | Delete-all-for-POID then re-append, on every `savePO` call |
 | `Payment Logs` | `ID` (client-generated `PL-…`) | `logPayment`, `editPaymentLog`, `updatePaymentStatus`, `deletePaymentLog` | Upsert / full overwrite via `pushPaymentLogs` |
 | `Promotions` | none (client-generated `BundleID` stored, not matched against) | `savePromotions` | Full overwrite |
 | `Freebies` | none | `saveFreebies` | Full overwrite |
 | `Settings` | `Key` (simple key/value table) | `saveSettings`, `setPin` (stores `AdminPinHash`) | Upsert per key |
-| `Units` | `IMEI` | `saveUnits` (append), `updateUnitStatus` (matched by IMEI) | Mixed |
+| `Units` | `IMEI` | `saveUnits` (append), `updateUnitStatus` (matched by IMEI) | Mixed; col J `IsDummy` added this revision |
 | `Issue Log` | `ID` (client-generated `ERR-…`) | `logIssue` (upsert), `updateIssueStatus` | Upsert / full overwrite via `pushIssueLogs` |
 | `Master List` | `Key` (`ik(product)`, the one tab that stores the composite key as an actual column) | `pushMasterList`/`saveProducts` | Full overwrite |
 
@@ -471,12 +472,18 @@ No tab has engine-enforced referential integrity. Every cross-tab relationship i
 | N | Sold Type | string | `logSale` | `Walk-in` \| `Pasa` |
 | O | Promoter | string | `logSale` | Empty for Walk-in |
 | P | Staff | string | `logSale` | `currentUser` at time of sale |
-| Q | Sale ID | string | `logSale` | **New this revision.** The client's own `saleRow.id` (`now + i*10`, unique per line item), written verbatim. This is the tab's first real, stable primary key — used by `voidSaleRow` to delete a specific row when a line item is removed via `TodayReport.vue` before end of day. |
-| R | IMEI | string (comma-joined) | `logSale` | **New this revision.** `item.imeis` for IMEI-tracked products (Smart Phone/Bar Phone/Tablet), empty for accessories. Previously captured locally (`store.selectedIMEIs` → `saleRow.imeis`, already shown in `TodayReport.vue`) but never written to Sheets at all — a phone/tablet sale's specific IMEI was untracked in the source of truth. |
+| Q | Sale ID | string | `logSale` | The client's own `saleRow.id` (`now + i*10`, unique per line item), written verbatim. This is the tab's first real, stable primary key — used by `voidSaleRow` to delete a specific row when a line item is removed via `TodayReport.vue` before end of day. |
+| R | IMEI | string (comma-joined) | `logSale` | `item.imeis` for IMEI-tracked products (Smart Phone/Bar Phone/Tablet), empty for accessories. |
+| S | Bundle Code | string | `logSale` | **New this revision.** `item.bundleCode`, distinct from column B (which holds the SO number, not the bundle/promo code, for ordinary sales). Column B's `r.so \|\| r.bundle` fallback logic is unchanged — this column is the one place the bundle code is *always* recoverable regardless of whether an SO was also present. |
+| T | Is Addon | `'true'`/`'false'` string | `logSale` | **New this revision.** True for the accessory line of a main-item+addon sale (`saleRow.isAddon`). |
+| U | Is Promotion | `'true'`/`'false'` string | `logSale` | **New this revision.** True for a bundle/promo main-item line (`saleRow.isPromotion`). Note: a third row type, promo-addon lines (`isPromoAddon`), has no dedicated column and reads back as `false` here — same lossy behavior the pre-existing `Sales` (obsolete) tab had. |
+| V | Customer Name | string | `logSale` | **New this revision.** From `saleRow.customer.name`, blank when no customer was captured (only the first item of a multi-item SO carries a customer). |
+| W | Customer Contact | string | `logSale` | **New this revision.** From `saleRow.customer.contact`. |
+| X | Customer Email | string | `logSale` | **New this revision.** From `saleRow.customer.email`. |
 
 Rows are still appended in insertion order; "the sale" as a unit still only exists as the set of rows sharing the same column-B value — column Q identifies a *line item*, not the SO as a whole.
 
-**Read-path data loss — fixed this revision.** `getSales()` previously projected only 10 of 16 columns (`Date, SO, ItemName, Variant, Color, Qty, SoldPrice, NetSales, Payment, Staff`), silently dropping `UnitPrice, SRP, PasaPrice, Discount, SoldType, Promoter` on the way back out — so `restoreTodaySales()` (`useSync.js`) rehydrated any Pasa sale after a cache-cleared refresh as a zero-cost Walk-in. `getSales()` now returns all 18 columns (including `SaleID` and `IMEI`), and `sheetRowToSaleRow()` in `useSync.js` was already written to consume every one of these fields, `IMEI` included (it just never received them before) — no client-side change was needed there, only the server-side projection.
+**Read-path data loss — fixed.** `getSales()` previously projected only 10 of 16 columns (`Date, SO, ItemName, Variant, Color, Qty, SoldPrice, NetSales, Payment, Staff`), silently dropping `UnitPrice, SRP, PasaPrice, Discount, SoldType, Promoter` on the way back out — so `restoreTodaySales()` (`useSync.js`) rehydrated any Pasa sale after a cache-cleared refresh as a zero-cost Walk-in. That was fixed by returning all 18 columns (`SaleID`/`IMEI` included). This revision closes the *remaining* gap: `sheetRowToSaleRow()` in `useSync.js` had always expected `BundleCode`, `IsAddon`, `IsPromotion`, `CustomerName`, `CustomerContact`, `CustomerEmail` too (this was discovered by comparing against the columns of the old, pre-Vue-migration `Sales` tab, which — unlike `Sales Log` — had captured all of these fields all along) — `getSales()` now returns all 24 columns and every field `sheetRowToSaleRow()` consumes has a real writer behind it.
 
 ### 10.3 `Inventory` (created by `initSheets`)
 
@@ -494,19 +501,32 @@ Rows are still appended in insertion order; "the sale" as a unit still only exis
 
 **Primary key:** none stored — `B+" "+C+"/"+D` (when non-empty) is recomputed at read time to match `ik(product)`, shared by `logSale`'s inline decrement, `updateInventoryRows()` (the shared helper behind both `updateInventoryItems` and `saveInventory`), and `getAllData`. Real-time stock now stays live across every source of change (sales, restocks, sale-row voids, Master List saves) as long as the product's key already has a row — if a brand-new product has never been through a "Push All Data", there's no existing row to key-match against and the incremental update silently no-ops for that product until the next full push, same as `logSale`'s existing behavior.
 
-### 10.4 `Purchase Orders` (created by `initSheets`)
+### 10.4 `Purchase Orders` + `PO Items` (both created by `initSheets`)
+
+**`Purchase Orders`** — one row per PO, `Items`/`Quantities` are a human-glance summary only, no longer the source of truth for programmatic reads (see `PO Items` below):
 
 | # | Column | Type | Written by |
 |---|---|---|---|
 | A | PO Number | string | `savePO` — `PO-{6 digits}`; primary key |
 | B | Date | string | `savePO` |
 | C | Supplier | string | `savePO` |
-| D | Items | **JSON string** of `[{name, qty, color}]` | `savePO` |
+| D | Items | **JSON string** of `[{name, qty, color}]` — legacy, see below | `savePO` |
 | E | Quantities | string (comma-joined qtys, human-glance only — not parsed by anything) | `savePO` |
 | F | Status | string | `savePO`, `updatePOStatus` — `pending` \| `sent` |
 | G | Approver | string | `savePO` |
 
-`savePO` is a real **upsert**: linear scan for a matching PO Number, update in place if found, append if not — this is what `useSales.js generatePO()` (auto-PO on low stock) and `PurchaseOrdersPage.vue` (manual edit) actually call. Column D switched from the old two-parallel-comma-joined-strings design (fragile — editing one without the other silently desynced item↔qty pairing) to a single JSON array, which `getAllData`'s `purchaseOrders` projection parses straight back into `items`. The legacy `logPO()` append-only handler is kept only for backward compatibility with anyone's very old copied script; nothing in the current frontend calls it.
+`savePO` is a real **upsert**: linear scan for a matching PO Number, update in place if found, append if not — this is what `useSales.js generatePO()` (auto-PO on low stock) and `PurchaseOrdersPage.vue` (manual edit) actually call. The legacy `logPO()` append-only handler is kept only for backward compatibility with anyone's very old copied script; nothing in the current frontend calls it.
+
+**`PO Items`** — normalized, one row per line item, added this revision to replace the fragile single-JSON-cell design (a malformed or truncated blob in column D above would silently drop every item on that PO):
+
+| # | Column | Type | Written by |
+|---|---|---|---|
+| A | POID | string | `savePOItems` — the same `PO Number` as the parent row, foreign key not enforced by the sheet |
+| B | ItemName | string | `savePOItems` |
+| C | Qty | number | `savePOItems` |
+| D | Color | string | `savePOItems` |
+
+`savePOItems(poId, items)` is called from both `savePO` and `logPO`. It is **not** an append-only log: on every call it first deletes every existing `PO Items` row for that `POID`, then re-appends the current item list — so editing a PO's items never leaves stale rows behind, and re-saving with the same items is a no-op in effect. `getAllData`'s `purchaseOrders` projection now reads `items` from `PO Items` first; only if a `POID` has **no** rows there at all does it fall back to parsing the legacy JSON blob in `Purchase Orders` column D — this covers POs created before this revision shipped, without needing a one-time data migration. `Purchase Orders` columns D/E are still written on every save (for anyone glancing at the raw sheet) but are otherwise vestigial for POs that have a `PO Items` presence.
 
 ### 10.5 `Payment Logs` (created by `initSheets`) — fully functional
 
@@ -536,7 +556,7 @@ These five tabs used to not exist at all — `getAllData` had no server-side han
 | `Promotions` | `BundleID, Name, Price, MainProductKey, MainProductName, AddonProductKey, AddonProductName` | `savePromotions` (full overwrite) | Mirrors `store.predefinedBundles` verbatim |
 | `Freebies` | `MainProductKey, FreebieProductKey, MainProductName, FreebieProductName` | `saveFreebies` (full overwrite) | Mirrors `store.productFreebies` (denormalized to an array first client-side) |
 | `Settings` | `Key, Value` | `saveSettings` (`DailyTarget`/`LowStockThreshold`/`GlobalReorder`, one row each), `setPin` (`AdminPinHash`) | Generic key/value table rather than one fixed-column row, so it can hold both app settings and the Admin PIN hash without a schema change |
-| `Units` | `IMEI, ProductKey, ProductName, Color, Status, DRNumber, ReceivedDate, SONumber, SoldDate` | `saveUnits` (append new units from Receive Stock), `updateUnitStatus` (matched by IMEI, marks `sold` + SO/date on `confirmSale()`) | Dummy units (`isDummy: true`, local backfill only) are never sent here — see [§9](#what-is-not-synced) |
+| `Units` | `IMEI, ProductKey, ProductName, Color, Status, DRNumber, ReceivedDate, SONumber, SoldDate, IsDummy` | `saveUnits` (append new units from Receive Stock), `updateUnitStatus` (matched by IMEI, marks `sold` + SO/date on `confirmSale()`) | `IsDummy` column added this revision (writes `'false'` for every unit currently pushed — see below); dummy units themselves are still never sent here — see [§9](#what-is-not-synced) |
 | `Issue Log` | see [§6](#6-core-data-structures) | `logIssue` (upsert by ID), `updateIssueStatus` | Backs `/issues` |
 
 `getAllData` reads `Master List`/`Inventory`/`Promotions`/`Freebies`/`Settings`/`Purchase Orders` and returns them in the exact shape `pullFromSheets()` already expected (it was written against this aspirational schema before the schema existed) — `verifyPin`/`setPin` hash the incoming PIN with the same SHA-256 scheme as the client's local fallback (`Utilities.computeDigest` server-side vs. `crypto.subtle.digest` client-side) and compare/store against `Settings!AdminPinHash`, defaulting to the same hard-coded hash for `1234` when no custom PIN has ever been set, so behavior is identical to the pre-existing local-only fallback until an Admin actually changes it.
