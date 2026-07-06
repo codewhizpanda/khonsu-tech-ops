@@ -215,6 +215,18 @@ function initSheets() {
       sh.appendRow(headers);
       sh.getRange(1, 1, 1, headers.length)
         .setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
+    } else {
+      // Existing tab (has data already) — backfill any newly-added trailing
+      // header columns without touching existing columns or any data rows,
+      // so a schema change (e.g. adding a column) doesn't get silently
+      // skipped just because the tab already has rows.
+      const existingWidth = sh.getLastColumn();
+      if (existingWidth < headers.length) {
+        const newCols = headers.slice(existingWidth);
+        const range = sh.getRange(1, existingWidth + 1, 1, newCols.length);
+        range.setValues([newCols]);
+        range.setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
+      }
     }
   });
   return respond({ status: 'Initialized' });
