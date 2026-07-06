@@ -436,7 +436,7 @@ All ten tabs below are created up front by `initSheets()` (i.e. the moment Setup
 
 | Tab | Primary key | Written by | Overwrite style |
 |---|---|---|---|
-| `Sales Log` | `Sale ID` (col Q, client-generated, added this revision) | `logSale`, `voidSaleRow` | Append-only, `voidSaleRow` deletes by `Sale ID` |
+| `Sales Log` | `Sale ID` (col Q, client-generated, added this revision) | `logSale`, `voidSaleRow` | Append-only, `voidSaleRow` deletes by `Sale ID`; col R `IMEI` added same revision |
 | `Inventory` | none (key recomputed as `Model + " " + RAM + "/" + Storage`) | `pushInventory` (full overwrite), `updateInventoryItems`/`saveInventory` (incremental, matched by recomputed key) | Mixed |
 | `Purchase Orders` | `PO Number` | `savePO` (upsert), `updatePOStatus`, legacy `logPO` | Upsert |
 | `Payment Logs` | `ID` (client-generated `PL-…`) | `logPayment`, `editPaymentLog`, `updatePaymentStatus`, `deletePaymentLog` | Upsert / full overwrite via `pushPaymentLogs` |
@@ -470,10 +470,11 @@ No tab has engine-enforced referential integrity. Every cross-tab relationship i
 | O | Promoter | string | `logSale` | Empty for Walk-in |
 | P | Staff | string | `logSale` | `currentUser` at time of sale |
 | Q | Sale ID | string | `logSale` | **New this revision.** The client's own `saleRow.id` (`now + i*10`, unique per line item), written verbatim. This is the tab's first real, stable primary key — used by `voidSaleRow` to delete a specific row when a line item is removed via `TodayReport.vue` before end of day. |
+| R | IMEI | string (comma-joined) | `logSale` | **New this revision.** `item.imeis` for IMEI-tracked products (Smart Phone/Bar Phone/Tablet), empty for accessories. Previously captured locally (`store.selectedIMEIs` → `saleRow.imeis`, already shown in `TodayReport.vue`) but never written to Sheets at all — a phone/tablet sale's specific IMEI was untracked in the source of truth. |
 
 Rows are still appended in insertion order; "the sale" as a unit still only exists as the set of rows sharing the same column-B value — column Q identifies a *line item*, not the SO as a whole.
 
-**Read-path data loss — fixed this revision.** `getSales()` previously projected only 10 of 16 columns (`Date, SO, ItemName, Variant, Color, Qty, SoldPrice, NetSales, Payment, Staff`), silently dropping `UnitPrice, SRP, PasaPrice, Discount, SoldType, Promoter` on the way back out — so `restoreTodaySales()` (`useSync.js`) rehydrated any Pasa sale after a cache-cleared refresh as a zero-cost Walk-in. `getSales()` now returns all 17 columns (including `SaleID`), and `sheetRowToSaleRow()` in `useSync.js` was already written to consume every one of these fields (it just never received them before) — no client-side change was needed there, only the server-side projection.
+**Read-path data loss — fixed this revision.** `getSales()` previously projected only 10 of 16 columns (`Date, SO, ItemName, Variant, Color, Qty, SoldPrice, NetSales, Payment, Staff`), silently dropping `UnitPrice, SRP, PasaPrice, Discount, SoldType, Promoter` on the way back out — so `restoreTodaySales()` (`useSync.js`) rehydrated any Pasa sale after a cache-cleared refresh as a zero-cost Walk-in. `getSales()` now returns all 18 columns (including `SaleID` and `IMEI`), and `sheetRowToSaleRow()` in `useSync.js` was already written to consume every one of these fields, `IMEI` included (it just never received them before) — no client-side change was needed there, only the server-side projection.
 
 ### 10.3 `Inventory` (created by `initSheets`)
 

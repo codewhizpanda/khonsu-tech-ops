@@ -154,7 +154,7 @@ function getSales() {
   if (data.length < 2) return respond({ sales: [] });
   // Column order matches initSheets + logSale:
   // 0:Date 1:SO/Bundle 2:Item 3:Variant 4:Color 5:Qty 6:UnitPrice 7:SRP
-  // 8:SoldPrice 9:PasaPrice 10:Discount 11:NetSales 12:Payment 13:SoldType 14:Promoter 15:Staff 16:SaleID
+  // 8:SoldPrice 9:PasaPrice 10:Discount 11:NetSales 12:Payment 13:SoldType 14:Promoter 15:Staff 16:SaleID 17:IMEI
   const sales = data.slice(1).map(function(r) {
     var d = r[0];
     return {
@@ -175,6 +175,7 @@ function getSales() {
       SoldType:  String(r[13] || ''),
       Promoter:  String(r[14] || ''),
       Staff:     String(r[15] || ''),
+      IMEI:      String(r[17] || ''),
     };
   });
   return respond({ sales: sales });
@@ -197,7 +198,7 @@ function getMasterList() {
 function initSheets() {
   const tabs = {
     'Sales Log': ['Date','Bundle','Item','Variant','Color','Qty','Unit Price','SRP',
-                  'Sold Price','Pasa Price','Discount','Net Sales','Payment','Sold Type','Promoter','Staff','Sale ID'],
+                  'Sold Price','Pasa Price','Discount','Net Sales','Payment','Sold Type','Promoter','Staff','Sale ID','IMEI'],
     'Inventory': ['Category','Model','RAM','Storage','Colors','Unit Price','SRP','Stock','Reorder Point'],
     'Purchase Orders': ['PO Number','Date','Supplier','Items','Quantities','Status','Approver'],
     'Payment Logs': ['ID','Date','Store','Method','Amount','Reference','Staff','Origin','Notes','Status','Credited Date','Credited By'],
@@ -226,7 +227,8 @@ function logSale(d) {
   rows.forEach(r => {
     sh.appendRow([d.date, r.so || r.bundle || '', r.itemName, r.variant || '', r.color || '',
       r.qty, r.unitPrice, r.srp, r.soldPrice, r.pasaPrice || 0,
-      r.discount || 0, r.netSales || 0, r.payment, r.soldType, r.promoter || '', r.staff, String(r.id || '')]);
+      r.discount || 0, r.netSales || 0, r.payment, r.soldType, r.promoter || '', r.staff, String(r.id || ''),
+      (r.imeis || []).join(', ')]);
   });
   if (inv) {
     const data = inv.getDataRange().getValues();
