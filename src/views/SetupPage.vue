@@ -220,23 +220,22 @@ function initSheets() {
   Object.entries(tabs).forEach(([name, headers]) => {
     let sh = SS.getSheetByName(name);
     if (!sh) sh = SS.insertSheet(name);
-    if (sh.getLastRow() === 0) {
-      sh.appendRow(headers);
-      sh.getRange(1, 1, 1, headers.length)
-        .setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
-    } else {
-      // Existing tab (has data already) — backfill any newly-added trailing
-      // header columns without touching existing columns or any data rows,
-      // so a schema change (e.g. adding a column) doesn't get silently
-      // skipped just because the tab already has rows.
-      const existingWidth = sh.getLastColumn();
-      if (existingWidth < headers.length) {
-        const newCols = headers.slice(existingWidth);
-        const range = sh.getRange(1, existingWidth + 1, 1, newCols.length);
-        range.setValues([newCols]);
-        range.setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
-      }
-    }
+    // Always (re)write row 1 to exactly match the current schema, whether the
+    // tab is brand new or has months of data rows already. Headers are pure
+    // labels, never read as data by anything but getMasterList()'s dynamic
+    // lookup, so overwriting them is safe and this sidesteps a real bug the
+    // previous "backfill trailing columns" approach had: it compared against
+    // sh.getLastColumn(), which reflects the widest DATA row, not the header
+    // row's own width. A tab created under an older/shorter schema (e.g. this
+    // sheet's Inventory tab, originally 'ProductKey,Stock,ReorderPoint,
+    // LastUpdated' from the pre-Vue app) but since written with wider,
+    // newer-schema data rows would already report getLastColumn() >= the new
+    // header count, so the header row's stale/wrong labels were never fixed
+    // and newly-added columns to its right were never labeled at all.
+    if (sh.getLastRow() === 0) sh.appendRow(headers);
+    else sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.getRange(1, 1, 1, headers.length)
+      .setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
   });
   return respond({ status: 'Initialized' });
 }
