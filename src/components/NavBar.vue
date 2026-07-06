@@ -9,6 +9,7 @@ const route  = useRoute();
 
 const isAdmin    = computed(() => store.currentUser === 'Admin');
 const drawerOpen = ref(false);
+const openIssueCount = computed(() => store.errorLogs.filter(e => e.status === 'open').length);
 
 const navItems = computed(() => {
   const items = [
@@ -25,6 +26,7 @@ const navItems = computed(() => {
       { path: '/setup',      icon: 'ic-zap',       label: 'Setup' },
       { path: '/reports',    icon: 'ic-calendar',  label: 'Reports' },
       { path: '/dashboard',  icon: 'ic-chart',     label: 'Dashboard' },
+      { path: '/issues',     icon: 'ic-alert',     label: 'Sync Issues' },
     );
   }
   return items;
@@ -73,6 +75,7 @@ function logout() {
     >
       <svg class="ic" aria-hidden="true"><use :href="'#' + item.icon"/></svg>
       {{ item.label }}
+      <span v-if="item.path === '/issues' && openIssueCount" style="background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 6px;margin-left:4px;">{{ openIssueCount }}</span>
     </button>
   </nav>
 
@@ -109,6 +112,7 @@ function logout() {
             >
               <svg style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use :href="'#' + item.icon"/></svg>
               {{ item.label }}
+              <span v-if="item.path === '/issues' && openIssueCount" style="background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 6px;margin-left:4px;">{{ openIssueCount }}</span>
             </button>
           </div>
 

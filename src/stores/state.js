@@ -13,6 +13,7 @@ export const useAppStore = defineStore('app', () => {
   const saleRows      = ref([]);
   const pendingItems  = ref([]);
   const paymentLogs   = ref([]);
+  const errorLogs     = ref([]);
   const currentSO     = ref(null);
   const soCounter     = ref(parseInt(localStorage.getItem('kt_so') || '0'));
   const selectedProduct = ref(null);
@@ -46,6 +47,10 @@ export const useAppStore = defineStore('app', () => {
 
   function savePaymentLogs() {
     localStorage.setItem('kt_paylogs', JSON.stringify(paymentLogs.value));
+  }
+
+  function saveErrorLogs() {
+    localStorage.setItem('kt_errlogs', JSON.stringify(errorLogs.value));
   }
 
   function saveTodayRows() {
@@ -89,6 +94,7 @@ export const useAppStore = defineStore('app', () => {
     scriptUrl.value         = localStorage.getItem('kt_url') || '';
 
     try { paymentLogs.value = JSON.parse(localStorage.getItem('kt_paylogs') || '[]'); } catch { paymentLogs.value = []; }
+    try { errorLogs.value = JSON.parse(localStorage.getItem('kt_errlogs') || '[]'); } catch { errorLogs.value = []; }
 
     try { syncQueue.value = JSON.parse(localStorage.getItem('kt_queue') || '[]'); } catch { syncQueue.value = []; }
 
@@ -127,10 +133,10 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     currentUser, masterList, PRODUCTS, predefinedBundles, productFreebies,
-    settings, inventory, saleRows, pendingItems, paymentLogs, currentSO, soCounter,
+    settings, inventory, saleRows, pendingItems, paymentLogs, errorLogs, currentSO, soCounter,
     selectedProduct, selectedAddon, activeCat, searchQ, addonCat,
     bundleCounter, purchaseOrders, scriptUrl, editingPOId, syncQueue,
     units, selectedIMEIs, receiveDraftItems, restockProduct,
-    saveInv, saveSettings, savePOs, savePaymentLogs, saveTodayRows, clearTodayRows, initApp,
+    saveInv, saveSettings, savePOs, savePaymentLogs, saveErrorLogs, saveTodayRows, clearTodayRows, initApp,
   };
 });

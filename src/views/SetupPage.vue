@@ -67,6 +67,26 @@ async function pushAll() {
     ]);
     await pushPost('pushInventory', { rows: invRows });
 
+    pushStatus.value = 'Pushing promotions…';
+    await pushPost('savePromotions', { bundles: store.predefinedBundles });
+
+    pushStatus.value = 'Pushing freebies…';
+    const freebies = Object.entries(store.productFreebies).map(([mainKey, freebieKey]) => {
+      const mp = store.masterList.find(p => ik(p) === mainKey);
+      const fp = store.masterList.find(p => ik(p) === freebieKey);
+      return { mainKey, freebieKey, mainName: mp?.name || '', freebieName: fp?.name || '' };
+    });
+    await pushPost('saveFreebies', { freebies });
+
+    pushStatus.value = 'Pushing settings…';
+    await pushPost('saveSettings', {
+      settings: {
+        DailyTarget:       store.settings.dailyTarget,
+        LowStockThreshold: store.settings.lowStockThreshold,
+        GlobalReorder:     store.settings.globalReorder,
+      },
+    });
+
     pushStatus.value = 'Done!';
     toast('All data pushed to Google Sheets!', 'success');
   } catch (err) {
@@ -82,20 +102,37 @@ const SCRIPT_SOURCE = `// Khonsu Tech Operations — Apps Script Backend
 // then deploy as Web App (Execute as: Me, Who has access: Anyone).
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
+const DEFAULT_PIN_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4'; // sha256("1234")
 
 function doPost(e) {
   try {
     const d = JSON.parse(e.postData.contents);
     if (d.action === 'init')                return initSheets();
     if (d.action === 'logSale')             return logSale(d);
+    if (d.action === 'voidSaleRow')         return voidSaleRow(d);
     if (d.action === 'logPO')               return logPO(d);
     if (d.action === 'pushInventory')       return pushInventory(d);
     if (d.action === 'pushMasterList')      return pushMasterList(d);
+    if (d.action === 'saveProducts')        return pushMasterList(d);
+    if (d.action === 'saveInventory')       return updateInventoryRows(d.rows);
+    if (d.action === 'updateInventoryItems')return updateInventoryRows(d.items);
+    if (d.action === 'savePO')              return savePO(d);
+    if (d.action === 'updatePOStatus')      return updatePOStatus(d);
+    if (d.action === 'savePromotions')      return savePromotions(d);
+    if (d.action === 'saveFreebies')        return saveFreebies(d);
+    if (d.action === 'saveUnits')           return saveUnits(d);
+    if (d.action === 'updateUnitStatus')    return updateUnitStatus(d);
+    if (d.action === 'saveSettings')        return saveSettings(d);
+    if (d.action === 'verifyPin')           return verifyPin(d);
+    if (d.action === 'setPin')              return setPin(d);
     if (d.action === 'logPayment')          return logPayment(d);
     if (d.action === 'updatePaymentStatus') return updatePaymentStatus(d);
     if (d.action === 'pushPaymentLogs')     return pushPaymentLogs(d);
     if (d.action === 'editPaymentLog')      return editPaymentLog(d);
     if (d.action === 'deletePaymentLog')    return deletePaymentLog(d);
+    if (d.action === 'logIssue')            return logIssue(d);
+    if (d.action === 'updateIssueStatus')   return updateIssueStatus(d);
+    if (d.action === 'pushIssueLogs')       return pushIssueLogs(d);
     return respond({ error: 'Unknown action' });
   } catch (err) { return respond({ error: err.toString() }); }
 }
@@ -105,6 +142,8 @@ function doGet(e) {
   if (e.parameter.action === 'getMasterList')    return getMasterList();
   if (e.parameter.action === 'getSales')         return getSales();
   if (e.parameter.action === 'getPaymentLogs')   return getPaymentLogs();
+  if (e.parameter.action === 'getAllData')       return getAllData();
+  if (e.parameter.action === 'getIssueLogs')     return getIssueLogs();
   return respond({ status: 'Khonsu Tech OPS running' });
 }
 
@@ -115,19 +154,26 @@ function getSales() {
   if (data.length < 2) return respond({ sales: [] });
   // Column order matches initSheets + logSale:
   // 0:Date 1:SO/Bundle 2:Item 3:Variant 4:Color 5:Qty 6:UnitPrice 7:SRP
-  // 8:SoldPrice 9:PasaPrice 10:Discount 11:NetSales 12:Payment 13:SoldType 14:Promoter 15:Staff
+  // 8:SoldPrice 9:PasaPrice 10:Discount 11:NetSales 12:Payment 13:SoldType 14:Promoter 15:Staff 16:SaleID
   const sales = data.slice(1).map(function(r) {
     var d = r[0];
     return {
+      SaleID:    String(r[16] || ''),
       Date:      d instanceof Date ? d.toISOString() : String(d),
       SO:        String(r[1] || ''),
       ItemName:  String(r[2] || ''),
       Variant:   String(r[3] || ''),
       Color:     String(r[4] || ''),
       Qty:       Number(r[5]) || 0,
+      UnitPrice: Number(r[6]) || 0,
+      SRP:       Number(r[7]) || 0,
       SoldPrice: Number(r[8]) || 0,
+      PasaPrice: Number(r[9]) || 0,
+      Discount:  Number(r[10]) || 0,
       NetSales:  Number(r[11]) || 0,
       Payment:   String(r[12] || ''),
+      SoldType:  String(r[13] || ''),
+      Promoter:  String(r[14] || ''),
       Staff:     String(r[15] || ''),
     };
   });
@@ -151,10 +197,15 @@ function getMasterList() {
 function initSheets() {
   const tabs = {
     'Sales Log': ['Date','Bundle','Item','Variant','Color','Qty','Unit Price','SRP',
-                  'Sold Price','Pasa Price','Discount','Net Sales','Payment','Sold Type','Promoter','Staff'],
+                  'Sold Price','Pasa Price','Discount','Net Sales','Payment','Sold Type','Promoter','Staff','Sale ID'],
     'Inventory': ['Category','Model','RAM','Storage','Colors','Unit Price','SRP','Stock','Reorder Point'],
     'Purchase Orders': ['PO Number','Date','Supplier','Items','Quantities','Status','Approver'],
-    'Payment Logs': ['ID','Date','Store','Method','Amount','Reference','Staff','Origin','Notes','Status','Credited Date','Credited By']
+    'Payment Logs': ['ID','Date','Store','Method','Amount','Reference','Staff','Origin','Notes','Status','Credited Date','Credited By'],
+    'Promotions': ['BundleID','Name','Price','MainProductKey','MainProductName','AddonProductKey','AddonProductName'],
+    'Freebies': ['MainProductKey','FreebieProductKey','MainProductName','FreebieProductName'],
+    'Settings': ['Key','Value'],
+    'Units': ['IMEI','ProductKey','ProductName','Color','Status','DRNumber','ReceivedDate','SONumber','SoldDate'],
+    'Issue Log': ['ID','Date','LastSeen','Type','Action','QueueID','Message','Context','Attempts','Status','ResolvedDate','ResolvedBy'],
   };
   Object.entries(tabs).forEach(([name, headers]) => {
     let sh = SS.getSheetByName(name);
@@ -175,7 +226,7 @@ function logSale(d) {
   rows.forEach(r => {
     sh.appendRow([d.date, r.so || r.bundle || '', r.itemName, r.variant || '', r.color || '',
       r.qty, r.unitPrice, r.srp, r.soldPrice, r.pasaPrice || 0,
-      r.discount || 0, r.netSales || 0, r.payment, r.soldType, r.promoter || '', r.staff]);
+      r.discount || 0, r.netSales || 0, r.payment, r.soldType, r.promoter || '', r.staff, String(r.id || '')]);
   });
   if (inv) {
     const data = inv.getDataRange().getValues();
@@ -190,6 +241,16 @@ function logSale(d) {
     });
   }
   return respond({ status: 'Sale logged', count: rows.length });
+}
+
+function voidSaleRow(d) {
+  const sh = SS.getSheetByName('Sales Log');
+  if (!sh) return respond({ error: 'No Sales Log sheet' });
+  const data = sh.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][16]) === String(d.id)) { sh.deleteRow(i + 1); break; }
+  }
+  return respond({ status: 'Sale row voided' });
 }
 
 function logPO(d) {
@@ -208,6 +269,23 @@ function pushInventory(d) {
   return respond({ status: 'Pushed', count: (d.rows || []).length });
 }
 
+function updateInventoryRows(list) {
+  const sh = SS.getSheetByName('Inventory');
+  if (!sh) return respond({ error: 'No Inventory sheet' });
+  const data = sh.getDataRange().getValues();
+  (list || []).forEach(function(entry) {
+    for (let i = 1; i < data.length; i++) {
+      const k = data[i][1] + (data[i][2] ? ' ' + data[i][2] : '') + (data[i][3] ? '/' + data[i][3] : '');
+      if (k.trim() === (entry.productKey || '').trim()) {
+        sh.getRange(i + 1, 8).setValue(entry.stock);
+        sh.getRange(i + 1, 9).setValue(entry.reorder);
+        break;
+      }
+    }
+  });
+  return respond({ status: 'Inventory updated', count: (list || []).length });
+}
+
 function pushMasterList(d) {
   let sh = SS.getSheetByName('Master List');
   if (!sh) {
@@ -219,6 +297,189 @@ function pushMasterList(d) {
   if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
   (d.rows || []).forEach(r => sh.appendRow(r));
   return respond({ status: 'Master List pushed', count: (d.rows || []).length });
+}
+
+function savePO(d) {
+  const sh = SS.getSheetByName('Purchase Orders');
+  if (!sh) return respond({ error: 'No Purchase Orders sheet' });
+  const items    = d.items || [];
+  const itemsStr = JSON.stringify(items);
+  const qtysStr  = items.map(i => i.qty).join(', ');
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.id)) {
+      sh.getRange(i + 1, 2, 1, 6).setValues([[d.date, d.supplier, itemsStr, qtysStr, d.status || 'pending', d.approver || '']]);
+      return respond({ status: 'PO updated' });
+    }
+  }
+  sh.appendRow([d.id, d.date, d.supplier, itemsStr, qtysStr, d.status || 'pending', d.approver || '']);
+  return respond({ status: 'PO created' });
+}
+
+function updatePOStatus(d) {
+  const sh = SS.getSheetByName('Purchase Orders');
+  if (!sh) return respond({ error: 'No Purchase Orders sheet' });
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.id)) {
+      sh.getRange(i + 1, 6).setValue(d.status || 'pending');
+      break;
+    }
+  }
+  return respond({ status: 'PO status updated' });
+}
+
+function savePromotions(d) {
+  const sh = SS.getSheetByName('Promotions');
+  if (!sh) return respond({ error: 'No Promotions sheet' });
+  if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+  (d.bundles || []).forEach(b => sh.appendRow([b.id, b.name, b.price, b.mainKey, b.mainName, b.addonKey, b.addonName]));
+  return respond({ status: 'Promotions saved', count: (d.bundles || []).length });
+}
+
+function saveFreebies(d) {
+  const sh = SS.getSheetByName('Freebies');
+  if (!sh) return respond({ error: 'No Freebies sheet' });
+  if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+  (d.freebies || []).forEach(f => sh.appendRow([f.mainKey, f.freebieKey, f.mainName || '', f.freebieName || '']));
+  return respond({ status: 'Freebies saved', count: (d.freebies || []).length });
+}
+
+function saveUnits(d) {
+  const sh = SS.getSheetByName('Units');
+  if (!sh) return respond({ error: 'No Units sheet' });
+  (d.units || []).forEach(u => sh.appendRow([u.imei, u.productKey, u.productName, u.color,
+    u.status || 'available', u.drNumber || '', u.receivedDate || '', u.soNumber || '', u.soldDate || '']));
+  return respond({ status: 'Units saved', count: (d.units || []).length });
+}
+
+function updateUnitStatus(d) {
+  const sh = SS.getSheetByName('Units');
+  if (!sh) return respond({ error: 'No Units sheet' });
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.imei)) {
+      sh.getRange(i + 1, 5).setValue('sold');
+      sh.getRange(i + 1, 8).setValue(d.soNumber || '');
+      sh.getRange(i + 1, 9).setValue(d.soldDate || '');
+      break;
+    }
+  }
+  return respond({ status: 'Unit status updated' });
+}
+
+function getSettingsSheet() {
+  let sh = SS.getSheetByName('Settings');
+  if (!sh) {
+    sh = SS.insertSheet('Settings');
+    sh.appendRow(['Key', 'Value']);
+    sh.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
+  }
+  return sh;
+}
+
+function getSettingValue(key) {
+  const sh = getSettingsSheet();
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) if (String(data[i][0]) === key) return data[i][1];
+  return null;
+}
+
+function setSettingValue(key, value) {
+  const sh = getSettingsSheet();
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === key) { sh.getRange(i + 1, 2).setValue(value); return; }
+  }
+  sh.appendRow([key, value]);
+}
+
+function saveSettings(d) {
+  const s = d.settings || {};
+  if (s.DailyTarget !== undefined)       setSettingValue('DailyTarget', s.DailyTarget);
+  if (s.LowStockThreshold !== undefined) setSettingValue('LowStockThreshold', s.LowStockThreshold);
+  if (s.GlobalReorder !== undefined)     setSettingValue('GlobalReorder', s.GlobalReorder);
+  return respond({ status: 'Settings saved' });
+}
+
+function sha256Hex(str) {
+  const raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, str, Utilities.Charset.UTF_8);
+  return raw.map(function(b) { return (b < 0 ? b + 256 : b).toString(16).padStart(2, '0'); }).join('');
+}
+
+function verifyPin(d) {
+  const stored = getSettingValue('AdminPinHash') || DEFAULT_PIN_HASH;
+  return respond({ valid: sha256Hex(d.pin || '') === stored });
+}
+
+function setPin(d) {
+  const stored = getSettingValue('AdminPinHash') || DEFAULT_PIN_HASH;
+  if (sha256Hex(d.current || '') !== stored) return respond({ error: 'Current PIN is incorrect' });
+  if (!d.next || String(d.next).length < 4) return respond({ error: 'New PIN must be at least 4 digits' });
+  setSettingValue('AdminPinHash', sha256Hex(d.next));
+  return respond({ status: 'PIN updated' });
+}
+
+function getAllData() {
+  const products = [];
+  const mlSheet = SS.getSheetByName('Master List');
+  if (mlSheet) {
+    const data = mlSheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      products.push({ Category: data[i][1], Name: data[i][2], RAM: data[i][3], Storage: data[i][4],
+        Colors: data[i][5], UnitPrice: data[i][6], SRP: data[i][7], Status: data[i][8] });
+    }
+  }
+
+  const inventory = [];
+  const invSheet = SS.getSheetByName('Inventory');
+  if (invSheet) {
+    const data = invSheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      const key = data[i][1] + (data[i][2] ? ' ' + data[i][2] : '') + (data[i][3] ? '/' + data[i][3] : '');
+      inventory.push({ ProductKey: key, Stock: data[i][7], ReorderPoint: data[i][8] });
+    }
+  }
+
+  const promotions = [];
+  const promoSheet = SS.getSheetByName('Promotions');
+  if (promoSheet) {
+    const data = promoSheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      promotions.push({ BundleID: data[i][0], Name: data[i][1], Price: data[i][2],
+        MainProductKey: data[i][3], MainProductName: data[i][4], AddonProductKey: data[i][5], AddonProductName: data[i][6] });
+    }
+  }
+
+  const freebies = [];
+  const freebieSheet = SS.getSheetByName('Freebies');
+  if (freebieSheet) {
+    const data = freebieSheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      freebies.push({ MainProductKey: data[i][0], FreebieProductKey: data[i][1] });
+    }
+  }
+
+  const settings = {
+    DailyTarget:       getSettingValue('DailyTarget'),
+    LowStockThreshold: getSettingValue('LowStockThreshold'),
+    GlobalReorder:     getSettingValue('GlobalReorder'),
+  };
+
+  const purchaseOrders = [];
+  const poSheet = SS.getSheetByName('Purchase Orders');
+  if (poSheet) {
+    const data = poSheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (!data[i][0]) continue;
+      let items = [];
+      try { items = JSON.parse(data[i][3] || '[]'); } catch (err) { items = []; }
+      purchaseOrders.push({ POID: data[i][0], Date: data[i][1], Supplier: data[i][2],
+        Approver: data[i][6], Status: data[i][5], items: items });
+    }
+  }
+
+  return respond({ products, inventory, promotions, freebies, settings, purchaseOrders });
 }
 
 function logPayment(d) {
@@ -308,6 +569,64 @@ function getPaymentLogs() {
   return respond({ logs: logs });
 }
 
+function logIssue(d) {
+  // Upsert by ID: a re-push of the same local entry (e.g. attempts/lastSeen bumped
+  // after a retried failure) updates its existing row instead of duplicating it.
+  const sh = SS.getSheetByName('Issue Log');
+  if (!sh) return respond({ error: 'No Issue Log sheet' });
+  const row = [d.id, d.date, d.lastSeen || d.date, d.type || 'runtime', d.issueAction || '',
+    d.queueId || '', d.message || '', d.context || '', d.attempts || 1,
+    d.status || 'open', d.resolvedDate || '', d.resolvedBy || ''];
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.id)) {
+      sh.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      return respond({ status: 'Issue updated' });
+    }
+  }
+  sh.appendRow(row);
+  return respond({ status: 'Issue logged' });
+}
+
+function updateIssueStatus(d) {
+  const sh = SS.getSheetByName('Issue Log');
+  if (!sh) return respond({ error: 'No Issue Log sheet' });
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.id)) {
+      sh.getRange(i + 1, 10).setValue(d.status || 'open');
+      sh.getRange(i + 1, 11).setValue(d.resolvedDate || '');
+      sh.getRange(i + 1, 12).setValue(d.resolvedBy || '');
+      break;
+    }
+  }
+  return respond({ status: 'Issue status updated' });
+}
+
+function pushIssueLogs(d) {
+  const sh = SS.getSheetByName('Issue Log');
+  if (!sh) return respond({ error: 'No Issue Log sheet' });
+  if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+  (d.rows || []).forEach(r => sh.appendRow(r));
+  return respond({ status: 'Issue Log pushed', count: (d.rows || []).length });
+}
+
+function getIssueLogs() {
+  const sh = SS.getSheetByName('Issue Log');
+  if (!sh) return respond({ issues: [] });
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return respond({ issues: [] });
+  const issues = data.slice(1).filter(r => r[0]).map(function(r) {
+    return {
+      ID: String(r[0] || ''), Date: String(r[1] || ''), LastSeen: String(r[2] || ''),
+      Type: String(r[3] || ''), Action: String(r[4] || ''), QueueID: String(r[5] || ''),
+      Message: String(r[6] || ''), Context: String(r[7] || ''), Attempts: Number(r[8]) || 1,
+      Status: String(r[9] || 'open'), ResolvedDate: String(r[10] || ''), ResolvedBy: String(r[11] || ''),
+    };
+  });
+  return respond({ issues: issues });
+}
+
 function respond(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
@@ -387,7 +706,7 @@ async function copyScript() {
         <h3 style="font-size:15px;font-weight:700;margin:0;">Push All Data</h3>
       </div>
       <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.7;">
-        Pushes your master list and inventory to Google Sheets. Run this after first connecting, or whenever you want to overwrite Sheets with local data.
+        Pushes your master list, inventory, promotions, freebies, and settings to Google Sheets. Run this after first connecting, or whenever you want to overwrite Sheets with local data.
       </p>
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
         <button class="btn btn-success" :disabled="pushing || !store.scriptUrl" @click="pushAll">

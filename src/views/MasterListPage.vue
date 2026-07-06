@@ -148,17 +148,20 @@ function openFreebieModal() {
   freebieModal.value = true;
 }
 
+function buildFreebiesPayload() {
+  return Object.entries(store.productFreebies).map(([mainKey, freebieKey]) => {
+    const mp = store.masterList.find(p => ik(p) === mainKey);
+    const fp = store.masterList.find(p => ik(p) === freebieKey);
+    return { mainKey, freebieKey, mainName: mp?.name || '', freebieName: fp?.name || '' };
+  });
+}
+
 function saveFreebie() {
   if (!frMain.value)  { toast('Select a main product', 'error'); return; }
   if (!frAddon.value) { toast('Select a freebie item', 'error'); return; }
   store.productFreebies[frMain.value] = frAddon.value;
   localStorage.setItem('kt_freebies', JSON.stringify(store.productFreebies));
-  const freebies = Object.entries(store.productFreebies).map(([mainKey, freebieKey]) => {
-    const mp = store.masterList.find(p => ik(p) === mainKey);
-    const fp = store.masterList.find(p => ik(p) === freebieKey);
-    return { mainKey, freebieKey, mainName: mp?.name || '', freebieName: fp?.name || '' };
-  });
-  tryPush('saveFreebies', { freebies });
+  tryPush('saveFreebies', { freebies: buildFreebiesPayload() });
   freebieModal.value = false;
   toast('Freebie saved!', 'success');
 }
@@ -166,7 +169,7 @@ function saveFreebie() {
 function deleteFreebie(mainKey) {
   delete store.productFreebies[mainKey];
   localStorage.setItem('kt_freebies', JSON.stringify(store.productFreebies));
-  tryPush('saveFreebies', { freebies: [] });
+  tryPush('saveFreebies', { freebies: buildFreebiesPayload() });
   toast('Freebie removed', 'success');
 }
 

@@ -3,7 +3,7 @@
 **Store:** Khonsu Electronic Gadgets Trading (ITEL Mobile)
 **Location:** Space No. K424.6, Festival Mall, FCC, Alabang, Muntinlupa City, Philippines
 **Currency:** Philippine Peso (₱)
-**Document status:** Reflects the codebase as of **2026-07-05** (Vue 3 SPA on `main`). Superseded architectures (single-file HTML, vanilla ES-module version) are preserved as git history/tags — see [§13](#13-project-history--legacy-versions).
+**Document status:** Reflects the codebase as of **2026-07-05** (Vue 3 SPA on `main`). Superseded architectures (single-file HTML, vanilla ES-module version) are preserved as git history/tags — see [§14](#14-project-history--legacy-versions).
 
 ---
 
@@ -62,14 +62,16 @@ It is built to run **without a dedicated backend**: the browser is the primary d
                          └───────────────┬─────────────────┘
                                         │
                                         ▼
-                         ┌───────────────────────────────┐
-                         │ Google Sheet ("Khonsu Sales")   │
-                         │ Sales Log · Inventory ·         │
-                         │ Master List · Purchase Orders   │
-                         └───────────────────────────────┘
+                         ┌─────────────────────────────────────┐
+                         │ Google Sheet ("Khonsu Sales")         │
+                         │ Sales Log · Inventory · Purchase       │
+                         │ Orders · Payment Logs · Promotions ·    │
+                         │ Freebies · Settings · Units · Issue Log │
+                         │ · Master List (lazily created)          │
+                         └───────────────────────────────────────┘
 ```
 
-Each staff device runs its own copy of the SPA and its own `localStorage`. The Google Sheet is the only thing that can reconcile multiple devices — see [§9](#9-offline-first-sync-architecture) for how that reconciliation actually works (and its limits).
+Each staff device runs its own copy of the SPA and its own `localStorage`. The Google Sheet is the only thing that can reconcile multiple devices — see [§9](#9-offline-first-sync-architecture) for the sync mechanics and [§10](#10-database-schema-google-sheets) for the actual tab-by-tab schema (and how well each tab is kept in sync in practice).
 
 ---
 
@@ -78,7 +80,7 @@ Each staff device runs its own copy of the SPA and its own `localStorage`. The G
 ```
 index.html                 ← Vite entry HTML (mounts #app)
 vite.config.js              ← base path, Vue + PWA plugins, "@" → /src alias
-manifest.json / public/manifest.json  ← PWA manifest (duplicated — see §12)
+manifest.json / public/manifest.json  ← PWA manifest (duplicated — see §13)
 css/styles.css              ← all app styling, imported once in main.js
 icons/, public/icons/        ← PWA icons (192/512)
 .github/workflows/deploy.yml ← CI: build on push to main, deploy dist/ to GitHub Pages
@@ -86,7 +88,7 @@ icons/, public/icons/        ← PWA icons (192/512)
 src/
   main.js                    ← createApp, Pinia, Router, imports css/styles.css
   App.vue                    ← shell: SvgSprite + (LockScreen | NavBar+RouterView) + SyncBanner/Overlay/Toast
-  router/index.js            ← 9 routes, hash history, adminOnly guard
+  router/index.js            ← 11 routes, hash history, adminOnly guard
   stores/state.js             ← Pinia store: all app state + initApp() bootstrapping
   utils.js                    ← ik(), vl(), fmt(), date helpers (parseSheetDate, sameDay, fmtSheetDate), ic()
   data.js                      ← DEF (default product catalogue), COLORS map, ADDON_CATS
@@ -96,6 +98,7 @@ src/
     useSync.js                  ← Google Sheets sync: tryPush, enqueue, processQueue, pullFromSheets, restoreTodaySales
     useToast.js                  ← module-singleton toast notification state
     usePaymentLogs.js              ← non-cash payment log CRUD, auto-derivation from confirmed sales, credited/pending status, cross-device pull
+    useErrorLog.js                   ← sync-failure/runtime-error logging, dedup-by-queueId, resolve/reopen, cross-device pull (deliberately does not import useSync.js — see §9)
 
   components/
     SvgSprite.vue                ← inline <symbol> definitions for all icons, mounted once
@@ -125,9 +128,10 @@ src/
     ReportsPage.vue                                    ← Today/Week/Month transaction report (Sheets-backed)
     DashboardPage.vue                                   ← KPI cards, 7-day bar chart, payment donut, staff leaderboard
     PaymentLogsPage.vue                                  ← non-cash payment reconciliation log (ITEL auto + Bisen manual), Admin credits/deletes
+    IssuesPage.vue                                        ← sync-failure/runtime-error log, Admin resolves/reopens + force-resync
 ```
 
-**Legacy directories no longer present:** the original single-file `tecnix-ops_25.html` and the intermediate `js/*.js` ES-module version described in earlier docs have been fully replaced by `src/`. They exist only in git history (see [§13](#13-project-history--legacy-versions)) — do not treat old copies of `CLAUDE.md`/`TECHNICAL.md` in this repo as current; they describe the pre-Vue architecture.
+**Legacy directories no longer present:** the original single-file `tecnix-ops_25.html` and the intermediate `js/*.js` ES-module version described in earlier docs have been fully replaced by `src/`. They exist only in git history (see [§14](#14-project-history--legacy-versions)) — do not treat old copies of `CLAUDE.md`/`TECHNICAL.md` in this repo as current; they describe the pre-Vue architecture.
 
 ---
 
@@ -147,6 +151,7 @@ All runtime state lives in one Pinia **setup store**, `useAppStore()` (`src/stor
   saleRows: [],                          // confirmed transactions for the current day
   pendingItems: [],                        // staged, not yet confirmed
   paymentLogs: [],                          // non-cash payment reconciliation log (ITEL auto + Bisen manual), never day-cleared
+  errorLogs: [],                             // sync-failure + runtime-error log, never day-cleared
   currentSO: null,                           // active Sales Order string
   soCounter, bundleCounter,                    // numbering counters
   selectedProduct, selectedAddon,                // active detail-screen selections
@@ -186,6 +191,7 @@ All runtime state lives in one Pinia **setup store**, `useAppStore()` (`src/stor
 | `kt_units` | IMEI unit records array (JSON) |
 | `kt_queue` | Offline sync queue (JSON) — see [§9](#9-offline-first-sync-architecture) |
 | `kt_paylogs` | Payment logs array (JSON) — non-cash reconciliation, see [§6](#6-core-data-structures) |
+| `kt_errlogs` | Sync-failure/runtime-error log array (JSON) — see [§6](#6-core-data-structures) |
 
 ---
 
@@ -287,6 +293,29 @@ Never cleared by day-close (unlike `saleRows`) — it accumulates until Admin re
 
 `store: 'ITEL'` entries double as **Accounts Receivable** (money owed to ITEL by the card/Home Credit processor until credited) and `store: 'Bisen'` entries double as **Accounts Payable** (money ITEL is holding on Bisen's behalf via the Maya terminal until it's paid out) — the Admin view surfaces both as pending-outstanding totals, derived from the same `status` field rather than separate AR/AP state.
 
+### Issue log (`errorLogs`)
+Sync-failure and runtime-error tracking, created two ways:
+- **`type: 'sync'`** — logged by `useSync.js`'s `tryPush()`/`processQueue()` whenever a real-time push or a queued retry fails against a *connected* Sheets URL (not logged just for being offline/unconfigured — that's normal, expected behavior already surfaced by `SyncBanner.vue`). Upserted by `queueId`: a retried failure of the same queue item updates the existing entry's `attempts`/`lastSeen` instead of creating a duplicate.
+- **`type: 'runtime'`** — logged by global `window.onerror` / `unhandledrejection` handlers registered in `useErrorLog.js`, catching uncaught app errors app-wide.
+
+```js
+{
+  id: 'ERR-1735900000000-42',
+  date,                        // ISO timestamp, first occurrence
+  lastSeen,                      // ISO timestamp, most recent occurrence (bumped on repeat sync failures)
+  type: 'sync' | 'runtime',
+  action,                          // sync action name (e.g. 'saveProducts'), '' for runtime errors
+  queueId,                           // matching kt_queue item id, for upsert-on-retry; null for runtime errors
+  message,                             // error message / server {error} string
+  context,                               // JSON snippet of the failed payload, or "file:line" for runtime errors
+  attempts,                                // sync retries seen so far
+  status: 'open' | 'resolved',
+  resolvedDate, resolvedBy,                  // set when Admin marks it resolved
+}
+```
+
+`useErrorLog.js` deliberately does **not** import `tryPush`/`enqueue` from `useSync.js` — `useSync.js` imports *from* `useErrorLog.js` to log failures, so the reverse import would be circular. Instead, issue-log pushes are one-shot/best-effort (`fetch` directly, swallow failures) — the local copy is always saved regardless, and Admin's **Push All to Sheets** button on `/issues` is the manual recovery valve if a push never lands, mirroring `pushAllPaymentLogs()`.
+
 ### Promotion / bundle
 ```js
 { id, name, price, mainKey, mainName, addonKey, addonName }
@@ -357,6 +386,9 @@ KPI cards (today/week/month net sales), daily-target progress bar, a 7-day CSS b
 ### 8.10 Payment Logs (`/payment-logs`, `PaymentLogsPage.vue`) — all users, Admin has extra controls
 Non-cash payment reconciliation. ITEL's `Card`/`Home Credit` sales are logged automatically (grouped per SO, per method) whenever `confirmSale()` runs. Any user can also log Bisen's (sister store) Maya terminal transactions (`Maya - Card` / `Maya - QRPh`) by hand, since Bisen sales don't flow through this app. Any user can **edit** (store/method/amount/reference/notes) or **delete** manually-created entries to correct mistakes — auto-logged ITEL entries are read-only, since they mirror a real confirmed sale. Search + store/status filter mirror the Purchase Orders page. Every entry starts `pending`; **Admin only** can mark it `credited` (or revert it) once the funds are confirmed in the bank/merchant account, and gets a prominent **Accounts Receivable (ITEL)** / **Accounts Payable (Bisen)** summary — pending-amount totals per store, i.e. what's still owed to ITEL vs. still owed to Bisen — plus a **Push All to Sheets** full-resync button. Pulls `?action=getPaymentLogs` on mount (when the offline queue is empty) to merge in entries logged from other staff devices, so Admin sees the full cross-device picture.
 
+### 8.11 Sync Issues (`/issues`, `IssuesPage.vue`) — Admin only
+Every sync failure and uncaught runtime error surfaces here instead of only the browser console — see the `errorLogs` structure in [§6](#6-core-data-structures). Summary cards break down open issues by type (sync vs. runtime) alongside a resolved count. Search + type/status filter mirror the other log pages. Admin marks an issue **Resolved** once the underlying data has been checked/fixed in Sheets, or **Reopens** it; a nav badge shows the live open-issue count. **Push All to Sheets** force-overwrites the Issue Log sheet from local state, for the same reason Payment Logs has one — issue-log pushes are one-shot/best-effort (see [§6](#6-core-data-structures)'s note on avoiding a circular import with `useSync.js`), so a push can occasionally not land and needs a manual nudge.
+
 ---
 
 ## 9. Offline-First Sync Architecture
@@ -366,32 +398,167 @@ Google Sheets is intended as the cross-device **source of truth**; every device 
 ### `useSync.js` primitives
 | Function | Behavior |
 |---|---|
-| `tryPush(action, payload)` | POSTs immediately if `scriptUrl` is set; on any failure (or if not configured) falls back to `enqueue()`. Used by every state-mutating feature. |
-| `enqueue(action, payload)` | Appends `{id, action, payload, addedAt, attempts}` to `kt_queue` and updates `store.syncQueue` (drives `SyncBanner.vue`). |
-| `processQueue()` | Drains the queue sequentially against the Web App; failed items are re-queued with an incremented `attempts` counter; shows the full-screen `SyncOverlay` while running. Triggered manually or automatically on the browser `online` event. |
+| `tryPush(action, payload)` | POSTs immediately if `scriptUrl` is set; on any failure (network error, or a `{error}` JSON response) falls back to `enqueue()` **and** logs a `sync` issue via `useErrorLog.js`. If `scriptUrl` isn't set at all, it just enqueues silently — that's normal offline-first operation, not a logged issue. Used by every state-mutating feature; this is the "real-time, right after save" half of the sync story. |
+| `enqueue(action, payload)` | Appends `{id, action, payload, addedAt, attempts}` to `kt_queue`, updates `store.syncQueue` (drives `SyncBanner.vue`), and returns the created item so callers can key an issue-log entry to it. |
+| `processQueue()` | Drains the queue sequentially against the Web App; failed items are re-queued with an incremented `attempts` counter and logged/updated as a `sync` issue; shows the full-screen `SyncOverlay` while running. Triggered manually ("Sync Now") or automatically on the browser `online` event. This is the "manual re-sync" half — what a user runs after an issue is flagged. |
 | `pullFromSheets()` | `GET ?action=getAllData` — hydrates `masterList`, `inventory`, `predefinedBundles`, `productFreebies`, `settings`, `purchaseOrders` from Sheets and overwrites the matching `localStorage` keys. Runs on login/app-mount, **only if the offline queue is empty** (to avoid clobbering un-synced local edits), after an 800 ms delay. |
 | `restoreTodaySales()` | `GET ?action=getSales`, filtered to today, used to rehydrate `saleRows` on login (in addition to the local `kt_today` fallback in `initApp()`). |
 
-### Actions the frontend actually sends
-`init`, `logSale`, `updateInventoryItems`, `updateUnitStatus`, `savePO`, `updatePOStatus`, `saveProducts`, `saveInventory`, `savePromotions`, `saveFreebies`, `saveUnits`, `saveSettings`, `verifyPin`, `setPin`, `logPayment`, `updatePaymentStatus`, `pushPaymentLogs`, `editPaymentLog`, `deletePaymentLog`, plus GETs `getAllData`, `getSales`, `getPaymentLogs`, `getMasterList` (legacy), `ping`.
+### Actions the frontend sends — all implemented server-side as of this revision
+`init`, `logSale`, `voidSaleRow`, `updateInventoryItems`, `saveInventory`, `saveProducts` (alias of `pushMasterList`), `updateUnitStatus`, `saveUnits`, `savePO`, `updatePOStatus`, `savePromotions`, `saveFreebies`, `saveSettings`, `verifyPin`, `setPin`, `logPayment`, `updatePaymentStatus`, `pushPaymentLogs`, `editPaymentLog`, `deletePaymentLog`, `logIssue`, `updateIssueStatus`, `pushIssueLogs`, plus GETs `getAllData`, `getSales`, `getPaymentLogs`, `getIssueLogs`, `getMasterList` (legacy), `ping`. Legacy/manual-only actions `logPO`, `pushInventory`, `pushMasterList` remain for the Setup page's "Push All Data" full-resync button.
 
-`logPayment`, `updatePaymentStatus`, `pushPaymentLogs`, `editPaymentLog`, `deletePaymentLog` (and the `getPaymentLogs` GET) are the exception to the gap below — they **are** implemented in the reference Apps Script in `SetupPage.vue`, against a `Payment Logs` sheet created by `initSheets()`, so payment-log reconciliation works cross-device out of the box for anyone following the Setup wizard. `pushPaymentLogs` is a full-overwrite recovery action (mirrors `pushMasterList`/`pushInventory`) for force-resyncing local `paymentLogs` if entries were ever created while the deployed script was stale.
+### ✅ Previously a known integration gap — now closed
+Earlier revisions of this document flagged a real, significant gap: the reference Apps Script only implemented a handful of actions (`init`, `logSale`, `logPO`, `pushInventory`, `pushMasterList`, plus the Payment Logs set), while the Vue app called many more that had no server-side handler at all — so PO sync, promotions/freebies sync, IMEI sync, inventory decrement outside of `logSale`, PIN management, and full cross-device data pull all silently failed and piled up in the offline queue forever. That gap is now closed: every action the frontend sends has a matching handler in `SCRIPT_SOURCE` (`SetupPage.vue`), and five new tabs (`Promotions`, `Freebies`, `Settings`, `Units`, `Issue Log`) were added to `initSheets()` to back them. See [§10](#10-database-schema-google-sheets) for the tab-by-tab detail.
 
-### ⚠️ Known integration gap
-The **Apps Script source embedded in `SetupPage.vue`** (what a store owner actually copies into `script.google.com`) only implements: `doPost` → `init, logSale, logPO, pushInventory, pushMasterList, logPayment, updatePaymentStatus, pushPaymentLogs, editPaymentLog, deletePaymentLog`; `doGet` → `ping, getMasterList, getSales, getPaymentLogs`. It does **not** implement `getAllData`, `verifyPin`, `setPin`, `updateInventoryItems`, `savePO`, `updatePOStatus`, `saveProducts`, `saveInventory`, `savePromotions`, `saveFreebies`, `saveUnits`, or `updateUnitStatus` — all of which the Vue app calls. In practice, for anyone following the in-app Setup wizard today:
-- Real-time stock decrement, PO sync, promotions/freebies sync, IMEI unit sync, and PIN management **silently fail and pile up in the offline queue forever** (they never succeed against the deployed script).
-- `pullFromSheets()`'s `getAllData` call will always error, so cross-device hydration on login does not work with the currently-documented script.
-- Admin login PIN verification falls back to a hard-coded local SHA-256 hash (default PIN **1234**) whenever `verifyPin` fails, which — given the above — is *always*, once a script URL is connected without patching the script.
+Two concrete correctness bugs were fixed alongside this:
+- `deleteFreebie()` (`MasterListPage.vue`) used to push `{ freebies: [] }` on every delete — an empty array — which would have wiped every freebie mapping in Sheets, not just the one being removed. It now pushes the full remaining list, same as `saveFreebie()`.
+- `removeRow()` (`useSales.js`, used by `TodayReport.vue` to undo a mistakenly-added line before end of day) restored local inventory but never synced the restored stock, and never removed the corresponding row from the Sales Log sheet — so a voided sale stayed in Sheets forever, permanently diverging from local state. It now pushes `updateInventoryItems` for the restored stock and `voidSaleRow` (matched by a new `SaleID` column) to delete the row.
 
-This is a real, current discrepancy between the client and the reference server script, not a hypothetical risk — the Apps Script needs to be extended (or the reference source in `SetupPage.vue` needs updating) to cover the newer action set documented in the "Key functions" list above before the sync/IMEI/PIN features can work end-to-end against a fresh Setup.
+**Caveat that still applies to already-deployed scripts:** none of this reaches a store owner's *live* Apps Script automatically. Updating the reference text in `SetupPage.vue` only changes what the Setup wizard shows to someone copying it *now*. Anyone with an already-deployed script must re-copy it and go **Deploy → Manage Deployments → Edit → New Version** (same URL, updated code) before these actions actually start working — see [§12](#12-deployment).
 
 ### What is NOT synced
 - `saleRows` for the *current, still-open* day are pushed per-transaction (`logSale` on every `confirmSale()`), so completed sales do reach the queue immediately — there is no separate end-of-day-only submit step in the current sales flow (unlike the legacy vanilla version's `submitDayReport()`).
 - Dummy IMEIs (`isDummy: true`) are a local backfill convenience and are never pushed to Sheets as real inventory.
+- `restoreTodaySales()`'s failure path is intentionally silent (no issue logged) — it's a best-effort login-time rehydration retried implicitly on every login, and logging every transient blip there would be noisy relative to its non-critical nature.
+
+### Sync-issue and runtime-error logging (`useErrorLog.js`, `/issues`)
+Every `tryPush`/`processQueue` failure against a *connected* script, and every uncaught runtime error/rejection app-wide, is recorded as an entry in `errorLogs` (see [§6](#6-core-data-structures)) and surfaced to Admin on `/issues` for investigation and resolution tracking — closing the loop on "all transactions sync in real time, and anything that doesn't gets flagged instead of silently disappearing."
 
 ---
 
-## 10. Business Logic Reference
+## 10. Database Schema (Google Sheets)
+
+The Google Sheet **is** the database — there is no separate DBMS. Each tab is a table; each row is a record; there is no engine-enforced schema, typing, uniqueness, or referential integrity, so everything below reflects what the Apps Script (`SetupPage.vue`'s `SCRIPT_SOURCE`) and the frontend actually read/write, not a designed-then-enforced schema. Columns are addressed **positionally** (`getRange(row, colIndex)`), so column order is load-bearing — reordering a header breaks every function that writes or reads that tab.
+
+### 10.1 Tab overview
+
+All ten tabs below are created up front by `initSheets()` (i.e. the moment Setup's **Connect** succeeds, or `init` is run manually in the Apps Script editor) except `Master List`, which is only lazily created the first time `pushMasterList`/`saveProducts` runs.
+
+| Tab | Primary key | Written by | Overwrite style |
+|---|---|---|---|
+| `Sales Log` | `Sale ID` (col Q, client-generated, added this revision) | `logSale`, `voidSaleRow` | Append-only, `voidSaleRow` deletes by `Sale ID` |
+| `Inventory` | none (key recomputed as `Model + " " + RAM + "/" + Storage`) | `pushInventory` (full overwrite), `updateInventoryItems`/`saveInventory` (incremental, matched by recomputed key) | Mixed |
+| `Purchase Orders` | `PO Number` | `savePO` (upsert), `updatePOStatus`, legacy `logPO` | Upsert |
+| `Payment Logs` | `ID` (client-generated `PL-…`) | `logPayment`, `editPaymentLog`, `updatePaymentStatus`, `deletePaymentLog` | Upsert / full overwrite via `pushPaymentLogs` |
+| `Promotions` | none (client-generated `BundleID` stored, not matched against) | `savePromotions` | Full overwrite |
+| `Freebies` | none | `saveFreebies` | Full overwrite |
+| `Settings` | `Key` (simple key/value table) | `saveSettings`, `setPin` (stores `AdminPinHash`) | Upsert per key |
+| `Units` | `IMEI` | `saveUnits` (append), `updateUnitStatus` (matched by IMEI) | Mixed |
+| `Issue Log` | `ID` (client-generated `ERR-…`) | `logIssue` (upsert), `updateIssueStatus` | Upsert / full overwrite via `pushIssueLogs` |
+| `Master List` | `Key` (`ik(product)`, the one tab that stores the composite key as an actual column) | `pushMasterList`/`saveProducts` | Full overwrite |
+
+No tab has engine-enforced referential integrity. Every cross-tab relationship is either a **string re-derived from other columns at the moment a script function runs** (e.g. `Model + ' ' + RAM + '/' + Storage`, mirroring the client-side `ik()` helper, used by `Inventory`/`getAllData`) or a plain copied value (the PO number/bundle code sitting in Sales Log column B, a Sales Log SO string copied into a Payment Log's `Reference`, or a `MainProductKey`/`AddonProductKey` sitting in `Promotions`/`Freebies` uninterpreted until `getAllData` or the client resolves it against `Master List`).
+
+### 10.2 `Sales Log` (created by `initSheets`)
+
+| # | Column | Type | Written by | Notes |
+|---|---|---|---|---|
+| A | Date | Date/ISO string | `logSale` | `d.date` — an ISO timestamp string sent by the client, not a Sheets-native date |
+| B | Bundle | string | `logSale` | Actually `r.so \|\| r.bundle` — holds the **Sales Order number** for ordinary sales, or the **bundle/promo code** for promo lines. Column name is misleading; this is the closest thing to an order/grouping key, and it repeats across every line item of the same SO |
+| C | Item | string | `logSale` | Product name (`itemName`) |
+| D | Variant | string | `logSale` | RAM/Storage label, e.g. `2GB / 64GB` |
+| E | Color | string | `logSale` | Comma-joined if multiple units |
+| F | Qty | number | `logSale` | |
+| G | Unit Price | number (₱) | `logSale` | Cost |
+| H | SRP | number (₱) | `logSale` | |
+| I | Sold Price | number (₱) | `logSale` | Price actually charged per unit |
+| J | Pasa Price | number (₱) | `logSale` | Promoter markup, 0 for Walk-in |
+| K | Discount | number (₱) | `logSale` | Always 0 in the current client (`discount` is not exposed as an editable field anywhere in the sales UI) |
+| L | Net Sales | number (₱) | `logSale` | Precomputed client-side, not recalculated server-side |
+| M | Payment | string | `logSale` | `Cash` \| `Card` \| `Home Credit` |
+| N | Sold Type | string | `logSale` | `Walk-in` \| `Pasa` |
+| O | Promoter | string | `logSale` | Empty for Walk-in |
+| P | Staff | string | `logSale` | `currentUser` at time of sale |
+| Q | Sale ID | string | `logSale` | **New this revision.** The client's own `saleRow.id` (`now + i*10`, unique per line item), written verbatim. This is the tab's first real, stable primary key — used by `voidSaleRow` to delete a specific row when a line item is removed via `TodayReport.vue` before end of day. |
+
+Rows are still appended in insertion order; "the sale" as a unit still only exists as the set of rows sharing the same column-B value — column Q identifies a *line item*, not the SO as a whole.
+
+**Read-path data loss — fixed this revision.** `getSales()` previously projected only 10 of 16 columns (`Date, SO, ItemName, Variant, Color, Qty, SoldPrice, NetSales, Payment, Staff`), silently dropping `UnitPrice, SRP, PasaPrice, Discount, SoldType, Promoter` on the way back out — so `restoreTodaySales()` (`useSync.js`) rehydrated any Pasa sale after a cache-cleared refresh as a zero-cost Walk-in. `getSales()` now returns all 17 columns (including `SaleID`), and `sheetRowToSaleRow()` in `useSync.js` was already written to consume every one of these fields (it just never received them before) — no client-side change was needed there, only the server-side projection.
+
+### 10.3 `Inventory` (created by `initSheets`)
+
+| # | Column | Type | Written by |
+|---|---|---|---|
+| A | Category | string | `pushInventory` (full overwrite only) |
+| B | Model | string | `pushInventory` |
+| C | RAM | string | `pushInventory` |
+| D | Storage | string | `pushInventory` |
+| E | Colors | string (comma-joined) | `pushInventory` |
+| F | Unit Price | number (₱) | `pushInventory` |
+| G | SRP | number (₱) | `pushInventory` |
+| H | Stock | number | `pushInventory` (full overwrite); `logSale`, `updateInventoryItems`/`saveInventory` (incremental, key-matched) |
+| I | Reorder Point | number | `pushInventory`; `updateInventoryItems`/`saveInventory` (incremental) |
+
+**Primary key:** none stored — `B+" "+C+"/"+D` (when non-empty) is recomputed at read time to match `ik(product)`, shared by `logSale`'s inline decrement, `updateInventoryRows()` (the shared helper behind both `updateInventoryItems` and `saveInventory`), and `getAllData`. Real-time stock now stays live across every source of change (sales, restocks, sale-row voids, Master List saves) as long as the product's key already has a row — if a brand-new product has never been through a "Push All Data", there's no existing row to key-match against and the incremental update silently no-ops for that product until the next full push, same as `logSale`'s existing behavior.
+
+### 10.4 `Purchase Orders` (created by `initSheets`)
+
+| # | Column | Type | Written by |
+|---|---|---|---|
+| A | PO Number | string | `savePO` — `PO-{6 digits}`; primary key |
+| B | Date | string | `savePO` |
+| C | Supplier | string | `savePO` |
+| D | Items | **JSON string** of `[{name, qty, color}]` | `savePO` |
+| E | Quantities | string (comma-joined qtys, human-glance only — not parsed by anything) | `savePO` |
+| F | Status | string | `savePO`, `updatePOStatus` — `pending` \| `sent` |
+| G | Approver | string | `savePO` |
+
+`savePO` is a real **upsert**: linear scan for a matching PO Number, update in place if found, append if not — this is what `useSales.js generatePO()` (auto-PO on low stock) and `PurchaseOrdersPage.vue` (manual edit) actually call. Column D switched from the old two-parallel-comma-joined-strings design (fragile — editing one without the other silently desynced item↔qty pairing) to a single JSON array, which `getAllData`'s `purchaseOrders` projection parses straight back into `items`. The legacy `logPO()` append-only handler is kept only for backward compatibility with anyone's very old copied script; nothing in the current frontend calls it.
+
+### 10.5 `Payment Logs` (created by `initSheets`) — fully functional
+
+| # | Column | Type | Written by |
+|---|---|---|---|
+| A | ID | string | `logPayment` — client-generated `PL-{timestamp}-{rand}`, the only real primary key in the whole spreadsheet |
+| B | Date | ISO string | `logPayment` |
+| C | Store | string | `logPayment` / `editPaymentLog` — `ITEL` \| `Bisen` |
+| D | Method | string | `logPayment` / `editPaymentLog` — `Card` \| `Home Credit` (ITEL) or `Maya - Card` \| `Maya - QRPh` (Bisen) |
+| E | Amount | number (₱) | `logPayment` / `editPaymentLog` |
+| F | Reference | string | `logPayment` / `editPaymentLog` — SO number (auto entries) or free-text terminal txn ID (manual) |
+| G | Staff | string | `logPayment` (not editable after creation) |
+| H | Origin | string | `logPayment` (not editable) — `auto` \| `manual` |
+| I | Notes | string | `logPayment` / `editPaymentLog` |
+| J | Status | string | `logPayment` / `updatePaymentStatus` — `pending` \| `credited` |
+| K | Credited Date | ISO string or `''` | `updatePaymentStatus` |
+| L | Credited By | string or `''` | `updatePaymentStatus` |
+
+Lookup for update/delete (`updatePaymentStatus`, `editPaymentLog`, `deletePaymentLog`) is a linear scan matching column A against `d.id`. Every client-side action for this tab (`logPayment`, `updatePaymentStatus`, `editPaymentLog`, `deletePaymentLog`, `pushPaymentLogs`, `getPaymentLogs`) has a matching, implemented server-side handler — see [§9](#9-offline-first-sync-architecture).
+
+### 10.6 `Promotions`, `Freebies`, `Settings`, `Units`, `Issue Log` (all created by `initSheets`)
+
+These five tabs used to not exist at all — `getAllData` had no server-side handler and nothing backed a normalized `products`/`promotions`/`freebies`/`settings` schema the client was already written to expect (see `pullFromSheets()` in `useSync.js`). All are now real:
+
+| Tab | Columns | Written by | Notes |
+|---|---|---|---|
+| `Promotions` | `BundleID, Name, Price, MainProductKey, MainProductName, AddonProductKey, AddonProductName` | `savePromotions` (full overwrite) | Mirrors `store.predefinedBundles` verbatim |
+| `Freebies` | `MainProductKey, FreebieProductKey, MainProductName, FreebieProductName` | `saveFreebies` (full overwrite) | Mirrors `store.productFreebies` (denormalized to an array first client-side) |
+| `Settings` | `Key, Value` | `saveSettings` (`DailyTarget`/`LowStockThreshold`/`GlobalReorder`, one row each), `setPin` (`AdminPinHash`) | Generic key/value table rather than one fixed-column row, so it can hold both app settings and the Admin PIN hash without a schema change |
+| `Units` | `IMEI, ProductKey, ProductName, Color, Status, DRNumber, ReceivedDate, SONumber, SoldDate` | `saveUnits` (append new units from Receive Stock), `updateUnitStatus` (matched by IMEI, marks `sold` + SO/date on `confirmSale()`) | Dummy units (`isDummy: true`, local backfill only) are never sent here — see [§9](#what-is-not-synced) |
+| `Issue Log` | see [§6](#6-core-data-structures) | `logIssue` (upsert by ID), `updateIssueStatus` | Backs `/issues` |
+
+`getAllData` reads `Master List`/`Inventory`/`Promotions`/`Freebies`/`Settings`/`Purchase Orders` and returns them in the exact shape `pullFromSheets()` already expected (it was written against this aspirational schema before the schema existed) — `verifyPin`/`setPin` hash the incoming PIN with the same SHA-256 scheme as the client's local fallback (`Utilities.computeDigest` server-side vs. `crypto.subtle.digest` client-side) and compare/store against `Settings!AdminPinHash`, defaulting to the same hard-coded hash for `1234` when no custom PIN has ever been set, so behavior is identical to the pre-existing local-only fallback until an Admin actually changes it.
+
+### 10.7 `Master List` (lazily created — not part of `initSheets`)
+
+Only created the first time `pushMasterList`/`saveProducts` succeeds (Setup's "Push All Data", or the ordinary Master List "Save Changes" button — both send the identical row shape, so `saveProducts` is a plain alias for `pushMasterList` server-side).
+
+| # | Column | Type |
+|---|---|---|
+| A | Key | string — `ik(product)`, the only tab that stores the composite key as an actual column |
+| B | Category | string |
+| C | Model | string |
+| D | RAM | string |
+| E | Storage | string |
+| F | Colors | string (comma-joined) |
+| G | Unit Price | number (₱) |
+| H | SRP | number (₱) |
+| I | Status | string — `Active` \| `Obsolete` |
+
+Full delete-and-reinsert overwrite on every save — from either "Push All Data" (Setup) or "Save Changes" (Master List page), now that `saveProducts` is wired up. `getMasterList()` (legacy `doGet` action, no longer called by any current view) reads this tab, falling back to `Inventory` if `Master List` doesn't exist yet.
+
+---
+
+## 11. Business Logic Reference
 
 ### Pricing
 | Sold Type | Customer Pays | Net Sales Formula |
@@ -429,7 +596,7 @@ There is no real authentication — `router.beforeEach` only checks `store.curre
 
 ---
 
-## 11. Deployment
+## 12. Deployment
 
 ### Build & CI
 - `npm run dev` — Vite dev server (`localhost:5173`).
@@ -438,30 +605,31 @@ There is no real authentication — `router.beforeEach` only checks `store.curre
 
 ### Connecting Google Sheets (end-user flow, via the Setup tab)
 1. Create a new Google Sheet.
-2. Extensions → Apps Script → paste the script shown in Setup (or an updated one — see [§9's gap](#-known-integration-gap)) → Deploy → New Deployment → Web App (Execute as **Me**, access **Anyone**).
-3. Paste the deployment URL into Setup → Connect (persists to `kt_url` / `store.scriptUrl`).
-4. **Push All Data** to seed the sheet from whatever is currently in `localStorage`.
-5. Redeploying script changes requires **Deploy → Manage Deployments → Edit → New Version** — the Web App URL itself stays stable.
+2. Extensions → Apps Script → paste the script shown in Setup → Deploy → New Deployment → Web App (Execute as **Me**, access **Anyone**).
+3. Paste the deployment URL into Setup → Connect (persists to `kt_url` / `store.scriptUrl`; also runs `init`, creating all ten tabs — see [§10](#10-database-schema-google-sheets)).
+4. **Push All Data** to seed the sheet from whatever is currently in `localStorage` (master list, inventory, promotions, freebies, settings).
+5. **Redeploying script changes always requires Deploy → Manage Deployments → Edit → New Version** — the Web App URL stays stable, but plain-saving the editor does *not* update the live endpoint. This matters whenever the reference script in Setup changes (as it did in this revision): anyone with an already-deployed script must re-copy and re-deploy a new version before newly-added actions actually work — see [§9](#9-offline-first-sync-architecture).
 
 ### PWA
-- `vite-plugin-pwa` in `autoUpdate` mode; manifest is hand-authored (both `manifest.json` at repo root and a duplicate in `public/manifest.json` — see [§12](#12-known-constraints--technical-debt)) rather than plugin-generated.
+- `vite-plugin-pwa` in `autoUpdate` mode; manifest is hand-authored (both `manifest.json` at repo root and a duplicate in `public/manifest.json` — see [§13](#13-known-constraints--technical-debt)) rather than plugin-generated.
 - Installable on mobile home screens; icons at 192/512px.
 
 ---
 
-## 12. Known Constraints & Technical Debt
+## 13. Known Constraints & Technical Debt
 
-- **Apps Script / frontend action mismatch** — see [§9](#-known-integration-gap). This is the highest-priority integration risk: several admin features (PO sync, promotions/freebies sync, IMEI sync, PIN management, full data pull) are silently non-functional against the script currently shown to users in the Setup tab.
+- **Stale already-deployed scripts** — the Apps Script/frontend action mismatch that used to be this section's top item is now closed in the *reference* script (see [§9](#9-offline-first-sync-architecture)), but that fix only reaches a store owner's *live* script if they re-copy and redeploy a new version. Anyone running an older deployed script still has the old gap until they do. There's no version-check or staleness warning in the app — a mismatched deployment just silently fails the same way the gap always did, now logged to `/issues` at least, so it's discoverable instead of invisible.
 - **Duplicate PWA manifest** — `manifest.json` (repo root) and `public/manifest.json` are byte-identical; only the `public/` copy is actually served by Vite. The root copy appears to be leftover from before the Vue migration and should be removed or documented as intentionally duplicated.
 - **No cross-device SO/PO numbering coordination** — counters are per-device/localStorage; concurrent devices can produce duplicate SO/PO numbers.
 - **No day-end submit gate** — sales push to Sheets immediately per-transaction; there's no explicit "has today been reconciled" state, so a device left connected indefinitely will keep accumulating `saleRows` until `closeDayReport()` is manually invoked.
-- **PIN is not real security** — see [§10](#users--permissions). Default PIN `1234` is a hard-coded fallback and is reachable any time the Sheets `verifyPin` call fails (currently: always, per the script gap above).
+- **PIN is now checked server-side, but is still not real security** — see [§11](#users--permissions). `verifyPin`/`setPin` now hash and compare against a stored `Settings!AdminPinHash` (defaulting to the hash of `1234` until changed), so a correctly-deployed script enforces a real custom PIN — but the app and its `localStorage` remain fully accessible client-side regardless, and the local SHA-256 fallback (same default hash) still applies whenever Sheets is unreachable or not connected.
 - **`localStorage` is origin-scoped** — moving the deployed URL (e.g. changing the GitHub Pages path) orphans all local data for staff devices already in use; only pricing/stock/sales already pushed to Sheets would be recoverable.
-- **CORS in local dev** — Apps Script only sends permissive CORS headers from the deployed Web App URL, not from `localhost`; errors during `npm run dev` against a live script are expected and are swallowed into the offline queue by design.
+- **CORS in local dev** — Apps Script only sends permissive CORS headers from the deployed Web App URL, not from `localhost`; errors during `npm run dev` against a live script are expected and are swallowed into the offline queue (and logged to `/issues`) by design.
+- **Issue-log pushes are best-effort, not queued** — unlike every other sync action, `logIssue`/`updateIssueStatus` pushes (`useErrorLog.js`) don't retry via the offline queue (to avoid a circular import with `useSync.js` — see [§6](#6-core-data-structures)). If Sheets is briefly unreachable exactly when an issue is logged, that specific push can be lost; the local copy never is, and Admin's **Push All to Sheets** on `/issues` is the manual recovery path.
 
 ---
 
-## 13. Project History & Legacy Versions
+## 14. Project History & Legacy Versions
 
 The codebase went through two prior architectures, preserved in git rather than in the working tree:
 
@@ -473,7 +641,7 @@ If reviving or diffing against a pre-Vue behavior, check out `v1.0-vanilla-js` r
 
 ---
 
-## 14. CSS Conventions (`css/styles.css`)
+## 15. CSS Conventions (`css/styles.css`)
 
 Custom properties on `:root`: `--bg`, `--surface`, `--surface2`, `--border`, `--accent` (`#1b2e6b`), `--accent2`, `--accent-light`, `--green`, `--red`, `--yellow`, `--text`, `--muted`, `--white`, `--moon` (`#c8d0e8`).
 

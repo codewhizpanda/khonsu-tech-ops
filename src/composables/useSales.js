@@ -245,10 +245,20 @@ export function useSales() {
 
   function removeRow(id) {
     const r = store.saleRows.find(x => x.id === id);
-    if (r && store.inventory[r.productKey]) store.inventory[r.productKey].stock += r.qty;
+    if (r && store.inventory[r.productKey]) {
+      store.inventory[r.productKey].stock += r.qty;
+      tryPush('updateInventoryItems', {
+        items: [{
+          productKey: r.productKey,
+          stock: store.inventory[r.productKey].stock,
+          reorder: store.inventory[r.productKey].reorder,
+        }],
+      });
+    }
     store.saleRows = store.saleRows.filter(x => x.id !== id);
     store.saveInv();
     store.saveTodayRows();
+    tryPush('voidSaleRow', { id });
   }
 
   function generatePO(items) {

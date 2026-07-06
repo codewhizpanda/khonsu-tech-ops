@@ -13,6 +13,7 @@ const routes = [
   { path: '/payment-logs', component: () => import('@/views/PaymentLogsPage.vue') },
   { path: '/reports',   component: () => import('@/views/ReportsPage.vue'),       meta: { adminOnly: true } },
   { path: '/dashboard', component: () => import('@/views/DashboardPage.vue'),     meta: { adminOnly: true } },
+  { path: '/issues',    component: () => import('@/views/IssuesPage.vue'),        meta: { adminOnly: true } },
 ];
 
 const router = createRouter({

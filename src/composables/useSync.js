@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { useAppStore } from '@/stores/state.js';
 import { useToast } from '@/composables/useToast.js';
+import { useErrorLog } from '@/composables/useErrorLog.js';
 import { sameDay } from '@/utils.js';
 
 const QUEUE_KEY = 'kt_queue';
@@ -37,13 +38,15 @@ function saveQueue(q) {
 
 export function enqueue(action, payload) {
   const q = getQueue();
-  q.push({
+  const item = {
     id: 'q' + Date.now() + Math.random().toString(36).slice(2, 6),
     action, payload,
     addedAt: new Date().toISOString(),
     attempts: 0,
-  });
+  };
+  q.push(item);
   saveQueue(q);
+  return item;
 }
 
 export async function tryPush(action, payload) {
@@ -57,8 +60,9 @@ export async function tryPush(action, payload) {
     });
     const json = await res.json();
     if (json.error) throw new Error(json.error);
-  } catch {
-    enqueue(action, payload);
+  } catch (err) {
+    const item = enqueue(action, payload);
+    useErrorLog().logSyncIssue({ queueId: item.id, action, message: err && err.message, payload });
   }
 }
 
@@ -81,9 +85,10 @@ export async function processQueue() {
       });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
-    } catch {
+    } catch (err) {
       item.attempts = (item.attempts || 0) + 1;
       failed.push(item);
+      useErrorLog().logSyncIssue({ queueId: item.id, action: item.action, message: err && err.message, payload: item.payload });
     }
   }
 
@@ -106,7 +111,10 @@ export async function pullFromSheets() {
   try {
     const res  = await fetch(store.scriptUrl + '?action=getAllData');
     const data = await res.json();
-    if (data.error) return;
+    if (data.error) {
+      useErrorLog().logSyncIssue({ action: 'getAllData', message: data.error });
+      return;
+    }
 
     if (data.products?.length) {
       store.masterList = data.products.map(r => ({
@@ -176,6 +184,7 @@ export async function pullFromSheets() {
     toast('Data synced from Google Sheets', 'success');
   } catch (e) {
     console.warn('Pull from Sheets failed:', e.message);
+    useErrorLog().logSyncIssue({ action: 'getAllData', message: e.message });
   } finally {
     hideOverlay();
   }
