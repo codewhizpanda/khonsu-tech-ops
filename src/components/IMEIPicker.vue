@@ -46,6 +46,15 @@ function toggleUnit(unit) {
   }
 }
 
+// Clicking a search result is always a select, never a deselect (matches are
+// already filtered to exclude selected units) — clear the query afterward so
+// a since-emptied search-results list doesn't flash a confusing "No matching
+// unit found" right after a successful pick.
+function selectFromSearch(unit) {
+  toggleUnit(unit);
+  scanQ.value = '';
+}
+
 function onScan() {
   const q = scanQ.value.trim();
   if (!q) return;
@@ -113,7 +122,7 @@ function onScanDetected(val) {
           v-for="(u, i) in searchResults"
           :key="u.imei"
           class="imei-card"
-          @click="toggleUnit(u)"
+          @click="selectFromSearch(u)"
         >
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
             <span style="font-size:11px;font-weight:600;color:var(--muted);">Unit {{ i + 1 }}</span>
