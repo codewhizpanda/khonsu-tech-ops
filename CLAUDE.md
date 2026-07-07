@@ -8,6 +8,8 @@ It's a **Vue 3 + Vite SPA** with `localStorage` as the primary datastore and an 
 
 For full architectural detail — data flow diagrams, every composable, the complete Google Sheets schema tab-by-tab, sync semantics, and known technical debt — see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**. This file is a condensed working guide; ARCHITECTURE.md is the source of truth and is kept current.
 
+For the store's initial go-live runbook (Sheets/Apps Script setup, PIN, staff device install, IMEI stocktake decision, dry-run checklist), see **[docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md)**.
+
 ---
 
 ## Tech Stack
