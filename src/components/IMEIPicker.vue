@@ -65,10 +65,12 @@ function onScan() {
     scanQ.value = '';
   } else if (store.units.find(u => u.imei === q && u.productKey === productKey.value && u.status === 'sold')) {
     toast('This unit has already been sold', 'error');
-    scanQ.value = '';
+    // Leave the scanned value in the box — a misread scan is easier to
+    // correct by editing what's there than by re-scanning/re-typing from
+    // scratch, and the clear (×) button offers a one-tap way to discard it.
   } else {
     toast('IMEI not found — receive this stock first', 'error');
-    scanQ.value = '';
+    // Same as above — keep the value visible so it can be corrected or cleared.
   }
 }
 
@@ -89,9 +91,18 @@ function onScanDetected(val) {
           v-model="scanQ"
           type="text"
           placeholder="Scan or type IMEI to select…"
-          style="font-family:'JetBrains Mono',monospace;font-size:13px;"
+          style="font-family:'JetBrains Mono',monospace;font-size:13px;padding-right:32px;"
           @keydown.enter.prevent="onScan"
         />
+        <button
+          v-if="scanQ"
+          type="button"
+          @click="scanQ = ''"
+          title="Clear"
+          style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex;align-items:center;"
+        >
+          <svg style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-x"/></svg>
+        </button>
       </div>
       <button class="btn btn-outline btn-sm" style="padding:0 12px;" title="Scan barcode" @click="scannerOpen = true">
         <svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-scan"/></svg>
@@ -134,7 +145,7 @@ function onScanDetected(val) {
         </div>
       </div>
       <div v-else style="padding:16px;text-align:center;color:var(--muted);font-size:13px;border:1.5px dashed var(--border);border-radius:8px;">
-        No matching unit found.
+        No matching unit found. Edit the IMEI above or clear it to try again.
       </div>
     </template>
     <div v-else-if="!selectedUnits.length" style="padding:24px;text-align:center;color:var(--muted);font-size:13px;border:1.5px dashed var(--border);border-radius:8px;">
