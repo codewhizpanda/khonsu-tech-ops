@@ -3,7 +3,7 @@
 **Store:** Khonsu Electronic Gadgets Trading (ITEL Mobile)
 **Location:** Space No. K424.6, Festival Mall, FCC, Alabang, Muntinlupa City, Philippines
 **Currency:** Philippine Peso (₱)
-**Document status:** Reflects the codebase as of **2026-07-05** (Vue 3 SPA on `main`). Superseded architectures (single-file HTML, vanilla ES-module version) are preserved as git history/tags — see [§14](#14-project-history--legacy-versions).
+**Document status:** Reflects the codebase as of **2026-07-07** (Vue 3 SPA on `main`). Superseded architectures (single-file HTML, vanilla ES-module version) are preserved as git history/tags — see [§14](#14-project-history--legacy-versions).
 
 ---
 
@@ -88,7 +88,7 @@ icons/, public/icons/        ← PWA icons (192/512)
 src/
   main.js                    ← createApp, Pinia, Router, imports css/styles.css
   App.vue                    ← shell: SvgSprite + (LockScreen | NavBar+RouterView) + SyncBanner/Overlay/Toast
-  router/index.js            ← 11 routes, hash history, adminOnly guard
+  router/index.js            ← 10 routes + a /setup→/settings?tab=sync redirect, hash history, adminOnly guard
   stores/state.js             ← Pinia store: all app state + initApp() bootstrapping
   utils.js                    ← ik(), vl(), fmt(), date helpers (parseSheetDate, sameDay, fmtSheetDate), ic()
   data.js                      ← DEF (default product catalogue), COLORS map, ADDON_CATS
@@ -122,8 +122,8 @@ src/
     InventoryPage.vue                            ← read-only stock table with search/status filter
     PurchaseOrdersPage.vue                        ← PO list, inline edit modal, mark-sent, print
     MasterListPage.vue                             ← product catalogue CRUD, promotions, freebies
-    SettingsPage.vue                                ← targets, reorder points, Admin PIN change
-    SetupPage.vue                                    ← Google Sheets connection wizard + embedded Apps Script source
+    SettingsPage.vue                                ← targets, reorder points, Pasa cap toggle, Admin PIN change (General tab) + embeds SetupPage.vue (Sync tab)
+    SetupPage.vue                                    ← Google Sheets connection wizard + embedded Apps Script source; no longer a standalone nav item, rendered inside Settings' "Sync" tab
     RestockPage.vue                                   ← "Receive Stock" — DR entry, IMEI/qty intake, scanner
     ReportsPage.vue                                    ← Today/Week/Month transaction report (Sheets-backed)
     DashboardPage.vue                                   ← KPI cards, 7-day bar chart, payment donut, staff leaderboard
@@ -147,7 +147,7 @@ All runtime state lives in one Pinia **setup store**, `useAppStore()` (`src/stor
   inventory: {},                    // { [productKey]: { stock, reorder } }
   predefinedBundles: [],             // seasonal promo bundles
   productFreebies: {},                 // { [mainProductKey]: freebieProductKey }
-  settings: { dailyTarget, lowStockThreshold, globalReorder },
+  settings: { dailyTarget, lowStockThreshold, globalReorder, pasaCapEnabled },  // pasaCapEnabled default true — see §11
   saleRows: [],                          // confirmed transactions for the current day
   pendingItems: [],                        // staged, not yet confirmed
   paymentLogs: [],                          // non-cash payment reconciliation log (ITEL auto + Bisen manual), never day-cleared
@@ -284,14 +284,17 @@ Non-cash payment reconciliation — tracks whether money collected via a non-cas
   notes,                          // manual only, optional
   staff,                            // who logged it (store.currentUser at creation time)
   origin: 'auto' | 'manual',
-  status: 'pending' | 'credited',
+  status: 'pending' | 'credited' | 'settled',   // 'settled' is Bisen-only — see below
   creditedDate, creditedBy,           // set when Admin marks the entry credited
+  settledDate, settledBy,               // set when Admin settles a credited Bisen entry (usePaymentLogs.js settlePayment())
 }
 ```
 
-Never cleared by day-close (unlike `saleRows`) — it accumulates until Admin reconciles it. Any logged-in user (Sam/Joyce/Admin) can view the log, add Bisen entries, and edit/delete manually-created entries (`origin: 'manual'`) to correct mistakes — auto-logged ITEL entries (`origin: 'auto'`) are read-only since they mirror a real confirmed sale. Only Admin can mark an entry credited/pending or force a full resync (see `usePaymentLogs.js` and `PaymentLogsPage.vue`).
+Never cleared by day-close (unlike `saleRows`) — it accumulates until Admin reconciles it. Any logged-in user (Sam/Joyce/Admin) can view the log, add Bisen entries, and edit/delete manually-created entries (`origin: 'manual'`) to correct mistakes — auto-logged ITEL entries (`origin: 'auto'`) are read-only since they mirror a real confirmed sale. Only Admin can mark an entry credited/pending, settle/revert a Bisen entry, or force a full resync (see `usePaymentLogs.js` and `PaymentLogsPage.vue`).
 
-`store: 'ITEL'` entries double as **Accounts Receivable** (money owed to ITEL by the card/Home Credit processor until credited) and `store: 'Bisen'` entries double as **Accounts Payable** (money ITEL is holding on Bisen's behalf via the Maya terminal until it's paid out) — the Admin view surfaces both as pending-outstanding totals, derived from the same `status` field rather than separate AR/AP state.
+`store: 'ITEL'` entries use a 2-state lifecycle (`pending → credited`) — `credited` means the card/Home Credit processor's payout has landed, fully resolving that entry as **Accounts Receivable**.
+
+`store: 'Bisen'` entries use a 3-state lifecycle (`pending → credited → settled`) since two separate facts need tracking: whether the Maya terminal funds actually landed in ITEL's account (`credited`, via `markCredited()`), and whether ITEL has since paid that amount out to Bisen (`settled`, via `settlePayment()` — only callable once a Bisen entry is already `credited`; enforced in `usePaymentLogs.js`, not just the UI). **Accounts Payable** — money ITEL is holding on Bisen's behalf — is therefore derived as: `apOutstanding` = sum of Bisen entries with status `pending` or `credited` (still owed), `apSettled` = sum of Bisen entries with status `settled` (already paid out). `revertToCredited()` undoes a settle if it was recorded by mistake. The Accounts Payable card on `/payment-logs` is visible to all staff (not just Admin) so Sam/Joyce can also see what's still owed to Bisen vs. already paid; Accounts Receivable stays Admin-only.
 
 ### Issue log (`errorLogs`)
 Sync-failure and runtime-error tracking, created two ways:
@@ -372,21 +375,22 @@ List of POs (search + Pending/Sent filter); **Edit** (pending only) opens a moda
 - **Freebies** section — map a main product to a complimentary accessory given away on sale (`saveFreebies`).
 
 ### 8.6 Settings (`/settings`, `SettingsPage.vue`) — Admin only
-Daily sales target, low-stock alert threshold, global default reorder point (with **Apply to All**), a per-product reorder-point override table, and an **Admin PIN change** form (calls the `setPin` Apps Script action; requires Sheets connection).
+Tabbed: **General** and **Google Sheets Sync**. `activeTab` defaults from `route.query.tab` (`?tab=sync` opens the sync tab directly; `/setup` redirects here with that query for old bookmarks/links — see [§4](#4-project--file-structure)).
+- **General** — daily sales target, low-stock alert threshold, global default reorder point (with **Apply to All**), a per-product reorder-point override table, the **Pasa Amount Cap** toggle (`settings.pasaCapEnabled` — see [§11](#11-business-logic-reference)), and an **Admin PIN change** form (calls the `setPin` Apps Script action; requires Sheets connection).
+- **Sync** — renders `SetupPage.vue` as a child component (unchanged internally, just no longer a standalone routed page/nav item): 4-step wizard — (1) instructions to create a Google Sheet, (2) the full embedded Apps Script source with a **Copy Script** button (`navigator.clipboard`), (3) **Connect** (posts `{action:'init'}` to verify + store the Web App URL), (4) **Push All Data** — one-shot full overwrite of Master List + Inventory sheets from local state.
 
-### 8.7 Setup (`/setup`, `SetupPage.vue`) — Admin only
-4-step wizard: (1) instructions to create a Google Sheet, (2) the full embedded Apps Script source with a **Copy Script** button (`navigator.clipboard`), (3) **Connect** (posts `{action:'init'}` to verify + store the Web App URL), (4) **Push All Data** — one-shot full overwrite of Master List + Inventory sheets from local state.
+Setup was merged into Settings (as a tab, not a separate nav item) since both are the same "Admin configures how the app behaves" concern — this also shrank the nav from 11 items to 10. The desktop tab bar and mobile drawer (`NavBar.vue`) group remaining items into four sections in click-order: **Daily Operations** (Log Sale, Receive Stock, Payment Logs — all users), **Insights** (Dashboard, Reports), **Catalog & Stock** (Inventory, Master List, Purchase Orders), **System** (Settings, Sync Issues) — the latter three Admin-only. A thin `.nav-divider` (desktop) / `.drawer-section-label` (mobile) renders wherever consecutive items' `section` differs.
 
-### 8.8 Reports (`/reports`, `ReportsPage.vue`) — Admin only
+### 8.7 Reports (`/reports`, `ReportsPage.vue`) — Admin only
 Today/Week/Month period selector; pulls `?action=getSales` from Sheets and filters client-side by date (`sameDay`/`parseSheetDate`); falls back to local `saleRows` for "Today" only if Sheets is unavailable, with a warning banner for the other periods.
 
-### 8.9 Dashboard (`/dashboard`, `DashboardPage.vue`) — Admin only
+### 8.8 Dashboard (`/dashboard`, `DashboardPage.vue`) — Admin only
 KPI cards (today/week/month net sales), daily-target progress bar, a 7-day CSS bar chart, an inline-SVG payment-method donut (Cash/Card/Home Credit), and a staff-performance leaderboard — all derived from the same `getSales` payload used by Reports.
 
-### 8.10 Payment Logs (`/payment-logs`, `PaymentLogsPage.vue`) — all users, Admin has extra controls
+### 8.9 Payment Logs (`/payment-logs`, `PaymentLogsPage.vue`) — all users, Admin has extra controls
 Non-cash payment reconciliation. ITEL's `Card`/`Home Credit` sales are logged automatically (grouped per SO, per method) whenever `confirmSale()` runs. Any user can also log Bisen's (sister store) Maya terminal transactions (`Maya - Card` / `Maya - QRPh`) by hand, since Bisen sales don't flow through this app. Any user can **edit** (store/method/amount/reference/notes) or **delete** manually-created entries to correct mistakes — auto-logged ITEL entries are read-only, since they mirror a real confirmed sale. Search + store/status filter mirror the Purchase Orders page. Every entry starts `pending`; **Admin only** can mark it `credited` (or revert it) once the funds are confirmed in the bank/merchant account, and gets a prominent **Accounts Receivable (ITEL)** / **Accounts Payable (Bisen)** summary — pending-amount totals per store, i.e. what's still owed to ITEL vs. still owed to Bisen — plus a **Push All to Sheets** full-resync button. Pulls `?action=getPaymentLogs` on mount (when the offline queue is empty) to merge in entries logged from other staff devices, so Admin sees the full cross-device picture.
 
-### 8.11 Sync Issues (`/issues`, `IssuesPage.vue`) — Admin only
+### 8.10 Sync Issues (`/issues`, `IssuesPage.vue`) — Admin only
 Every sync failure and uncaught runtime error surfaces here instead of only the browser console — see the `errorLogs` structure in [§6](#6-core-data-structures). Summary cards break down open issues by type (sync vs. runtime) alongside a resolved count. Search + type/status filter mirror the other log pages. Admin marks an issue **Resolved** once the underlying data has been checked/fixed in Sheets, or **Reopens** it; a nav badge shows the live open-issue count. **Push All to Sheets** force-overwrites the Issue Log sheet from local state, for the same reason Payment Logs has one — issue-log pushes are one-shot/best-effort (see [§6](#6-core-data-structures)'s note on avoiding a circular import with `useSync.js`), so a push can occasionally not land and needs a manual nudge.
 
 ---
@@ -546,11 +550,13 @@ Rows are still appended in insertion order; "the sale" as a unit still only exis
 | G | Staff | string | `logPayment` (not editable after creation) |
 | H | Origin | string | `logPayment` (not editable) — `auto` \| `manual` |
 | I | Notes | string | `logPayment` / `editPaymentLog` |
-| J | Status | string | `logPayment` / `updatePaymentStatus` — `pending` \| `credited` |
+| J | Status | string | `logPayment` / `updatePaymentStatus` — `pending` \| `credited` \| `settled` (ITEL entries only ever use `pending`/`credited`; `settled` is Bisen-only) |
 | K | Credited Date | ISO string or `''` | `updatePaymentStatus` |
 | L | Credited By | string or `''` | `updatePaymentStatus` |
+| M | Settled Date | ISO string or `''` | `updatePaymentStatus` — **new this revision** |
+| N | Settled By | string or `''` | `updatePaymentStatus` — **new this revision** |
 
-Lookup for update/delete (`updatePaymentStatus`, `editPaymentLog`, `deletePaymentLog`) is a linear scan matching column A against `d.id`. Every client-side action for this tab (`logPayment`, `updatePaymentStatus`, `editPaymentLog`, `deletePaymentLog`, `pushPaymentLogs`, `getPaymentLogs`) has a matching, implemented server-side handler — see [§9](#9-offline-first-sync-architecture).
+Lookup for update/delete (`updatePaymentStatus`, `editPaymentLog`, `deletePaymentLog`) is a linear scan matching column A against `d.id`. Every client-side action for this tab (`logPayment`, `updatePaymentStatus`, `editPaymentLog`, `deletePaymentLog`, `pushPaymentLogs`, `getPaymentLogs`) has a matching, implemented server-side handler — see [§9](#9-offline-first-sync-architecture). `updatePaymentStatus` always writes all four of columns J–N together (`usePaymentLogs.js`'s `pushStatus()` helper sends the log's full current status/credited/settled state on every transition), so a status change never leaves stale settle info from an earlier state.
 
 ### 10.6 `Promotions`, `Freebies`, `Settings`, `Units`, `Issue Log` (all created by `initSheets`)
 
@@ -560,7 +566,7 @@ These five tabs used to not exist at all — `getAllData` had no server-side han
 |---|---|---|---|
 | `Promotions` | `BundleID, Name, Price, MainProductKey, MainProductName, AddonProductKey, AddonProductName` | `savePromotions` (full overwrite) | Mirrors `store.predefinedBundles` verbatim |
 | `Freebies` | `MainProductKey, FreebieProductKey, MainProductName, FreebieProductName` | `saveFreebies` (full overwrite) | Mirrors `store.productFreebies` (denormalized to an array first client-side) |
-| `Settings` | `Key, Value` | `saveSettings` (`DailyTarget`/`LowStockThreshold`/`GlobalReorder`, one row each), `setPin` (`AdminPinHash`) | Generic key/value table rather than one fixed-column row, so it can hold both app settings and the Admin PIN hash without a schema change |
+| `Settings` | `Key, Value` | `saveSettings` (`DailyTarget`/`LowStockThreshold`/`GlobalReorder`/`PasaCapEnabled`, one row each), `setPin` (`AdminPinHash`) | Generic key/value table rather than one fixed-column row, so it can hold both app settings and the Admin PIN hash without a schema change |
 | `Units` | `IMEI, ProductKey, ProductName, Color, Status, DRNumber, ReceivedDate, SONumber, SoldDate, IsDummy` | `saveUnits` (append new units from Receive Stock), `updateUnitStatus` (matched by IMEI, marks `sold` + SO/date on `confirmSale()`) | `IsDummy` column added this revision (writes `'false'` for every unit currently pushed — see below); dummy units themselves are still never sent here — see [§9](#what-is-not-synced) |
 | `Issue Log` | see [§6](#6-core-data-structures) | `logIssue` (upsert by ID), `updateIssueStatus` | Backs `/issues` |
 
@@ -598,6 +604,8 @@ Full delete-and-reinsert overwrite on every save — from either "Push All Data"
 - Add-on net: `addonSoldPrice − addonUnitPrice`
 - Promo-included accessory ("promoAddon"): `−(unitPrice × qty)` — cost with no revenue (given away as part of the bundle)
 - Freebie items decrement stock but generate no sale row / no revenue or cost line at all
+
+**Pasa amount cap** (`settings.pasaCapEnabled`, default `true`, toggle in Settings → General): when on, the per-unit Pasa markup a staff member can enter is capped at that item's own net sales amount, `max(0, SRP − unitPrice)` — so a promoter's commission can never exceed what ITEL earns selling the item at plain SRP. Enforced twice: in `SaleForm.vue` (clamps on blur, shows the max and a "capped" notice) and again in `useSales.js buildPendingItem()` (defense in depth — reclamps regardless of what the form passed, e.g. an item added before the cap was toggled on and then re-edited). Because the cap is per-unit and both the cap and the pasa markup scale linearly with `qty`, capping per-unit is equivalent to capping the line's total Pasa payout. Turning the setting off removes the cap entirely (any Pasa amount is accepted, matching pre-cap behavior).
 
 ### Numbering formats
 | Type | Format | Example |

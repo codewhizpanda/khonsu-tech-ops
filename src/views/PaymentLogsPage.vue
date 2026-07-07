@@ -6,7 +6,7 @@ import { usePaymentLogs, BISEN_METHODS, ITEL_METHODS } from '@/composables/usePa
 
 const store   = useAppStore();
 const isAdmin = computed(() => store.currentUser === 'Admin');
-const { addBisenLog, editLog, markCredited, revertPending, removeLog, pullPaymentLogs, pushAllPaymentLogs } = usePaymentLogs();
+const { addBisenLog, editLog, markCredited, revertPending, settlePayment, revertToCredited, removeLog, pullPaymentLogs, pushAllPaymentLogs } = usePaymentLogs();
 
 onMounted(() => { pullPaymentLogs(); });
 
@@ -22,7 +22,7 @@ const filterStore   = ref('All');
 const filterStatus  = ref('All');
 const filterOpen    = ref(false);
 const storeOptions  = ['All', 'ITEL', 'Bisen'];
-const statusOptions = ['All', 'Pending', 'Credited'];
+const statusOptions = ['All', 'Pending', 'Credited', 'Settled'];
 
 const filteredLogs = computed(() => {
   const q = searchQ.value.toLowerCase();
@@ -49,15 +49,18 @@ const totals = computed(() => {
 });
 
 // Accounts Receivable (ITEL) — non-cash sale proceeds owed to ITEL until credited.
-// Accounts Payable (Bisen) — Maya terminal proceeds ITEL is holding for Bisen until paid out.
+// Accounts Payable (Bisen) — Maya terminal proceeds ITEL is holding for Bisen until settled.
+// Bisen entries move pending -> credited (Admin confirms the funds really landed) ->
+// settled (Admin has actually paid Bisen out) — AP only drops once truly settled;
+// "credited" alone still counts as outstanding/owed.
 const arAp = computed(() => {
   const itel  = store.paymentLogs.filter(l => l.store === 'ITEL');
   const bisen = store.paymentLogs.filter(l => l.store === 'Bisen');
   return {
-    arPending:  itel.filter(l => l.status === 'pending').reduce((s, l) => s + l.amount, 0),
-    arReceived: itel.filter(l => l.status === 'credited').reduce((s, l) => s + l.amount, 0),
-    apPending:  bisen.filter(l => l.status === 'pending').reduce((s, l) => s + l.amount, 0),
-    apSettled:  bisen.filter(l => l.status === 'credited').reduce((s, l) => s + l.amount, 0),
+    arPending:     itel.filter(l => l.status === 'pending').reduce((s, l) => s + l.amount, 0),
+    arReceived:    itel.filter(l => l.status === 'credited').reduce((s, l) => s + l.amount, 0),
+    apOutstanding: bisen.filter(l => l.status !== 'settled').reduce((s, l) => s + l.amount, 0),
+    apSettled:     bisen.filter(l => l.status === 'settled').reduce((s, l) => s + l.amount, 0),
   };
 });
 
@@ -149,17 +152,18 @@ function submitEdit() {
       Use the button above to log Bisen's Maya terminal transactions (Card / QRPh) by hand.
     </p>
 
-    <!-- Accounts Receivable (ITEL) / Accounts Payable (Bisen) — Admin only -->
-    <div v-if="isAdmin" class="g2" style="margin-bottom:16px;">
-      <div class="sc" style="border-left:4px solid var(--accent);">
+    <!-- Accounts Receivable (ITEL) is Admin-only; Accounts Payable (Bisen) is visible to
+         all staff so they can track what's still owed to Bisen vs. already paid out. -->
+    <div :class="isAdmin ? 'g2' : ''" style="margin-bottom:16px;">
+      <div v-if="isAdmin" class="sc" style="border-left:4px solid var(--accent);">
         <div class="sl">Accounts Receivable — ITEL</div>
         <div class="sv">{{ fmt(arAp.arPending) }}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:6px;">Received to date: <strong style="color:var(--green);">{{ fmt(arAp.arReceived) }}</strong></div>
       </div>
       <div class="sc" style="border-left:4px solid #7e22ce;">
         <div class="sl">Accounts Payable — Bisen</div>
-        <div class="sv" style="color:#7e22ce;">{{ fmt(arAp.apPending) }}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Settled to date: <strong style="color:var(--green);">{{ fmt(arAp.apSettled) }}</strong></div>
+        <div class="sv" style="color:#7e22ce;">{{ fmt(arAp.apOutstanding) }}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Still owed to Bisen · Settled to date: <strong style="color:var(--green);">{{ fmt(arAp.apSettled) }}</strong></div>
       </div>
     </div>
 
@@ -249,20 +253,24 @@ function submitEdit() {
             <strong style="color:var(--text);">Reference:</strong> {{ log.reference || '—' }}<br>
             <strong style="color:var(--text);">Logged by:</strong> {{ log.staff }}
             <template v-if="log.notes"><br><strong style="color:var(--text);">Notes:</strong> {{ log.notes }}</template>
-            <template v-if="log.status === 'credited'"><br><strong style="color:var(--text);">Credited:</strong> {{ fmtDate(log.creditedDate) }} by {{ log.creditedBy }}</template>
+            <template v-if="log.status === 'credited' || log.status === 'settled'"><br><strong style="color:var(--text);">Credited:</strong> {{ fmtDate(log.creditedDate) }} by {{ log.creditedBy }}</template>
+            <template v-if="log.status === 'settled'"><br><strong style="color:var(--text);">Settled to Bisen:</strong> {{ fmtDate(log.settledDate) }} by {{ log.settledBy }}</template>
           </div>
         </div>
         <span
-          :style="{ background: log.status === 'credited' ? '#dcfce7' : '#fef3c7', color: log.status === 'credited' ? '#16a34a' : '#d97706' }"
+          :style="{
+            background: log.status === 'settled' ? '#dcfce7' : log.status === 'credited' ? '#dbeafe' : '#fef3c7',
+            color: log.status === 'settled' ? '#16a34a' : log.status === 'credited' ? '#2563eb' : '#d97706',
+          }"
           style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;"
         >
-          <svg v-if="log.status === 'credited'" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-check"/></svg>
+          <svg v-if="log.status === 'settled' || log.status === 'credited'" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-check"/></svg>
           <svg v-else style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-clock"/></svg>
-          {{ log.status === 'credited' ? 'Credited' : 'Pending' }}
+          {{ log.status === 'settled' ? 'Settled' : log.status === 'credited' ? 'Credited' : 'Pending' }}
         </span>
       </div>
 
-      <!-- Actions: Edit/Delete only on manually-created entries, available to all staff; credited toggle is Admin-only -->
+      <!-- Actions: Edit/Delete only on manually-created entries, available to all staff; credited/settle toggles are Admin-only -->
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;">
         <template v-if="log.origin === 'manual'">
           <button class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:4px;" @click="openEdit(log)">
@@ -275,8 +283,18 @@ function submitEdit() {
           </button>
         </template>
         <template v-if="isAdmin">
-          <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Mark as Credited</button>
-          <button v-else class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert to Pending</button>
+          <template v-if="log.store === 'Bisen'">
+            <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Mark as Credited</button>
+            <template v-else-if="log.status === 'credited'">
+              <button class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert to Pending</button>
+              <button class="btn btn-success btn-sm" @click="settlePayment(log.id)">✓ Settle Payment to Bisen</button>
+            </template>
+            <button v-else class="btn btn-outline btn-sm" @click="revertToCredited(log.id)">Revert to Credited</button>
+          </template>
+          <template v-else>
+            <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Mark as Credited</button>
+            <button v-else class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert to Pending</button>
+          </template>
         </template>
       </div>
     </div>

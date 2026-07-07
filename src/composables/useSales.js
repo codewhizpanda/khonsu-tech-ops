@@ -79,7 +79,15 @@ export function useSales() {
 
     const srp = p.srp;
     const isPromo = bundlePrice > 0;
-    const sp = isPromo ? bundlePrice : (soldType === 'Pasa' ? srp + pasa : srp);
+    // Defense in depth: cap the Pasa markup at the item's net sales amount
+    // (SRP - unitPrice) whenever the setting is on, even if the form somehow
+    // passed a higher value (e.g. re-editing an item added before the cap
+    // was enabled).
+    let cappedPasa = pasa || 0;
+    if (soldType === 'Pasa' && store.settings.pasaCapEnabled !== false) {
+      cappedPasa = Math.min(cappedPasa, Math.max(0, srp - p.unitPrice));
+    }
+    const sp = isPromo ? bundlePrice : (soldType === 'Pasa' ? srp + cappedPasa : srp);
     const freebieKey = store.productFreebies[ik(p)];
     const freebieP = freebieKey ? store.masterList.find(x => ik(x) === freebieKey) : null;
 
@@ -95,7 +103,7 @@ export function useSales() {
       imeis: imei ? store.selectedIMEIs.map(u => u.imei) : [],
       soldType,
       promoter: soldType === 'Pasa' ? promoter : '',
-      pasa: pasa || 0,
+      pasa: cappedPasa,
       payment,
       srp,
       sp,

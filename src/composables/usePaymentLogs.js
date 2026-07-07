@@ -25,6 +25,8 @@ export function usePaymentLogs() {
       status: 'pending',
       creditedDate: null,
       creditedBy: null,
+      settledDate: null,
+      settledBy: null,
     };
     store.paymentLogs.unshift(entry);
     store.savePaymentLogs();
@@ -52,6 +54,17 @@ export function usePaymentLogs() {
     return true;
   }
 
+  // Pushes the full status/credited/settled state for a log entry, so the sheet
+  // always mirrors exactly what's stored locally — avoids partial-update bugs
+  // where an old settledDate/settledBy lingers after a status change.
+  function pushStatus(log) {
+    tryPush('updatePaymentStatus', {
+      id: log.id, status: log.status,
+      creditedDate: log.creditedDate, creditedBy: log.creditedBy,
+      settledDate: log.settledDate, settledBy: log.settledBy,
+    });
+  }
+
   function markCredited(id) {
     const log = store.paymentLogs.find(p => p.id === id);
     if (!log) return;
@@ -59,7 +72,7 @@ export function usePaymentLogs() {
     log.creditedDate = new Date().toISOString();
     log.creditedBy = store.currentUser;
     store.savePaymentLogs();
-    tryPush('updatePaymentStatus', { id, status: 'credited', creditedDate: log.creditedDate, creditedBy: log.creditedBy });
+    pushStatus(log);
     toast('Marked as credited', 'success');
   }
 
@@ -69,9 +82,41 @@ export function usePaymentLogs() {
     log.status = 'pending';
     log.creditedDate = null;
     log.creditedBy = null;
+    log.settledDate = null;
+    log.settledBy = null;
     store.savePaymentLogs();
-    tryPush('updatePaymentStatus', { id, status: 'pending', creditedDate: null, creditedBy: null });
+    pushStatus(log);
     toast('Reverted to pending', 'success');
+  }
+
+  // Bisen's Maya terminal proceeds double as Accounts Payable — money ITEL is
+  // holding on Bisen's behalf. Settling only makes sense once Admin has already
+  // confirmed the funds landed (status 'credited'); this is the step that
+  // actually reduces the outstanding AP balance once cash has been paid out.
+  function settlePayment(id) {
+    const log = store.paymentLogs.find(p => p.id === id);
+    if (!log) return;
+    if (log.store !== 'Bisen' || log.status !== 'credited') {
+      toast('Only a credited Bisen payment can be settled', 'error');
+      return;
+    }
+    log.status = 'settled';
+    log.settledDate = new Date().toISOString();
+    log.settledBy = store.currentUser;
+    store.savePaymentLogs();
+    pushStatus(log);
+    toast('Payment settled to Bisen', 'success');
+  }
+
+  function revertToCredited(id) {
+    const log = store.paymentLogs.find(p => p.id === id);
+    if (!log || log.status !== 'settled') return;
+    log.status = 'credited';
+    log.settledDate = null;
+    log.settledBy = null;
+    store.savePaymentLogs();
+    pushStatus(log);
+    toast('Reverted to credited', 'success');
   }
 
   function editLog(id, { storeName, method, amount, reference = '', notes = '' }) {
@@ -103,7 +148,7 @@ export function usePaymentLogs() {
     const rows = store.paymentLogs.map(l => ([
       l.id, l.date, l.store, l.method, l.amount, l.reference || '',
       l.staff || '', l.origin || 'manual', l.notes || '', l.status || 'pending',
-      l.creditedDate || '', l.creditedBy || '',
+      l.creditedDate || '', l.creditedBy || '', l.settledDate || '', l.settledBy || '',
     ]));
     try {
       const res  = await fetch(store.scriptUrl, {
@@ -146,6 +191,8 @@ export function usePaymentLogs() {
           status: String(r.Status || 'pending'),
           creditedDate: r.CreditedDate ? String(r.CreditedDate) : null,
           creditedBy: r.CreditedBy ? String(r.CreditedBy) : null,
+          settledDate: r.SettledDate ? String(r.SettledDate) : null,
+          settledBy: r.SettledBy ? String(r.SettledBy) : null,
         });
       });
       store.paymentLogs = Array.from(byId.values()).sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -153,5 +200,9 @@ export function usePaymentLogs() {
     } catch { /* non-critical */ }
   }
 
-  return { addPaymentLog, logSalePayments, addBisenLog, editLog, markCredited, revertPending, removeLog, pullPaymentLogs, pushAllPaymentLogs };
+  return {
+    addPaymentLog, logSalePayments, addBisenLog, editLog,
+    markCredited, revertPending, settlePayment, revertToCredited,
+    removeLog, pullPaymentLogs, pushAllPaymentLogs,
+  };
 }

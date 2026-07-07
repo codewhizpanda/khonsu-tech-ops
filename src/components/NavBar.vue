@@ -11,22 +11,32 @@ const isAdmin    = computed(() => store.currentUser === 'Admin');
 const drawerOpen = ref(false);
 const openIssueCount = computed(() => store.errorLogs.filter(e => e.status === 'open').length);
 
+// Grouped in the order staff actually use them day to day: daily operations first,
+// then (Admin-only) a quick read of how the business is doing, then catalog/stock
+// management, then system-level configuration. Setup was merged into Settings
+// (as its "Sync" tab) since both are admin configuration screens — one less nav item.
+const sectionLabels = {
+  ops:      'Daily Operations',
+  insights: 'Insights',
+  catalog:  'Catalog & Stock',
+  system:   'System',
+};
+
 const navItems = computed(() => {
   const items = [
-    { path: '/sales',         icon: 'ic-cart',         label: 'Log Sale' },
-    { path: '/restock',       icon: 'ic-truck',        label: 'Receive Stock' },
-    { path: '/payment-logs',  icon: 'ic-credit-card',  label: 'Payment Logs' },
+    { path: '/sales',         icon: 'ic-cart',         label: 'Log Sale',        section: 'ops' },
+    { path: '/restock',       icon: 'ic-truck',        label: 'Receive Stock',   section: 'ops' },
+    { path: '/payment-logs',  icon: 'ic-credit-card',  label: 'Payment Logs',    section: 'ops' },
   ];
   if (isAdmin.value) {
     items.push(
-      { path: '/inventory',  icon: 'ic-box',       label: 'Inventory' },
-      { path: '/po',         icon: 'ic-clipboard', label: 'Purchase Orders' },
-      { path: '/masterlist', icon: 'ic-list',      label: 'Master List' },
-      { path: '/settings',   icon: 'ic-settings',  label: 'Settings' },
-      { path: '/setup',      icon: 'ic-zap',       label: 'Setup' },
-      { path: '/reports',    icon: 'ic-calendar',  label: 'Reports' },
-      { path: '/dashboard',  icon: 'ic-chart',     label: 'Dashboard' },
-      { path: '/issues',     icon: 'ic-alert',     label: 'Sync Issues' },
+      { path: '/dashboard',  icon: 'ic-chart',     label: 'Dashboard',        section: 'insights' },
+      { path: '/reports',    icon: 'ic-calendar',  label: 'Reports',          section: 'insights' },
+      { path: '/inventory',  icon: 'ic-box',       label: 'Inventory',        section: 'catalog' },
+      { path: '/masterlist', icon: 'ic-list',      label: 'Master List',     section: 'catalog' },
+      { path: '/po',         icon: 'ic-clipboard', label: 'Purchase Orders', section: 'catalog' },
+      { path: '/settings',   icon: 'ic-settings',  label: 'Settings',         section: 'system' },
+      { path: '/issues',     icon: 'ic-alert',     label: 'Sync Issues',      section: 'system' },
     );
   }
   return items;
@@ -66,17 +76,18 @@ function logout() {
 
   <!-- Desktop horizontal nav (hidden on mobile via CSS) -->
   <nav>
-    <button
-      v-for="item in navItems"
-      :key="item.path"
-      class="tab"
-      :class="{ active: isActive(item.path) }"
-      @click="go(item.path)"
-    >
-      <svg class="ic" aria-hidden="true"><use :href="'#' + item.icon"/></svg>
-      {{ item.label }}
-      <span v-if="item.path === '/issues' && openIssueCount" style="background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 6px;margin-left:4px;">{{ openIssueCount }}</span>
-    </button>
+    <template v-for="(item, idx) in navItems" :key="item.path">
+      <span v-if="idx > 0 && item.section !== navItems[idx - 1].section" class="nav-divider" aria-hidden="true"></span>
+      <button
+        class="tab"
+        :class="{ active: isActive(item.path) }"
+        @click="go(item.path)"
+      >
+        <svg class="ic" aria-hidden="true"><use :href="'#' + item.icon"/></svg>
+        {{ item.label }}
+        <span v-if="item.path === '/issues' && openIssueCount" style="background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 6px;margin-left:4px;">{{ openIssueCount }}</span>
+      </button>
+    </template>
   </nav>
 
   <!-- Mobile drawer -->
@@ -103,17 +114,20 @@ function logout() {
 
           <!-- Nav items -->
           <div style="flex:1;padding:10px 10px;overflow-y:auto;">
-            <button
-              v-for="item in navItems"
-              :key="item.path"
-              class="drawer-item"
-              :class="{ active: isActive(item.path) }"
-              @click="go(item.path)"
-            >
-              <svg style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use :href="'#' + item.icon"/></svg>
-              {{ item.label }}
-              <span v-if="item.path === '/issues' && openIssueCount" style="background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 6px;margin-left:4px;">{{ openIssueCount }}</span>
-            </button>
+            <template v-for="(item, idx) in navItems" :key="item.path">
+              <div v-if="idx === 0 || item.section !== navItems[idx - 1].section" class="drawer-section-label">
+                {{ sectionLabels[item.section] }}
+              </div>
+              <button
+                class="drawer-item"
+                :class="{ active: isActive(item.path) }"
+                @click="go(item.path)"
+              >
+                <svg style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;" aria-hidden="true"><use :href="'#' + item.icon"/></svg>
+                {{ item.label }}
+                <span v-if="item.path === '/issues' && openIssueCount" style="background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 6px;margin-left:4px;">{{ openIssueCount }}</span>
+              </button>
+            </template>
           </div>
 
           <!-- Footer -->

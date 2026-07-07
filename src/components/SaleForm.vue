@@ -36,6 +36,7 @@ const promoAddonName = ref('');
 
 const customerFormRef = ref(null);
 const pasaDisplay = ref('');
+const pasaWasCapped = ref(false);
 
 // Preview total: for IMEI products use at least 1 unit even if none selected yet
 const previewTotal = computed(() => {
@@ -43,8 +44,21 @@ const previewTotal = computed(() => {
   return displayPrice.value * q + (store.selectedAddon?.soldPrice || 0);
 });
 
+// Admin-toggleable (Settings → General): caps the promoter's Pasa markup at the
+// item's own net sales amount (SRP − Unit Price) so a promoter's commission can
+// never exceed what ITEL earns on the sale. Applies per unit — since the cap
+// scales the same way qty does, it's equivalent to capping the whole line total.
+const pasaCapEnabled = computed(() => store.settings.pasaCapEnabled !== false);
+const pasaMax = computed(() => product.value ? Math.max(0, product.value.srp - product.value.unitPrice) : 0);
+
 function onPasaBlur() {
-  const v = parseFloat(pasaDisplay.value) || 0;
+  let v = parseFloat(pasaDisplay.value) || 0;
+  if (pasaCapEnabled.value && v > pasaMax.value) {
+    v = pasaMax.value;
+    pasaWasCapped.value = true;
+  } else {
+    pasaWasCapped.value = false;
+  }
   pasa.value = v;
   pasaDisplay.value = v > 0 ? v.toFixed(2) : '';
 }
@@ -87,6 +101,7 @@ function resetForm(init) {
   promoter.value   = d.promoter   ?? '';
   pasa.value       = d.pasa       ?? 0;
   pasaDisplay.value = (d.pasa || 0) > 0 ? Number(d.pasa).toFixed(2) : '';
+  pasaWasCapped.value = false;
   payment.value    = d.payment    ?? 'Cash';
   bundleCode.value  = d.bundleCode  ?? '';
   bundlePrice.value = d.bundlePrice ?? 0;
@@ -242,9 +257,15 @@ function getFormData() {
                   inputmode="decimal"
                   placeholder="0.00"
                   class="form-control"
-                  @input="pasaDisplay = $event.target.value; pasa = parseFloat($event.target.value) || 0"
+                  @input="pasaDisplay = $event.target.value; pasa = parseFloat($event.target.value) || 0; pasaWasCapped = false"
                   @blur="onPasaBlur"
                 />
+                <div v-if="pasaCapEnabled" style="font-size:11px;color:var(--muted);margin-top:4px;">
+                  Max {{ fmt(pasaMax) }} — capped to this item's net sales amount
+                </div>
+                <div v-if="pasaWasCapped" style="font-size:11px;color:var(--red);margin-top:4px;">
+                  Capped to the maximum allowed Pasa amount.
+                </div>
               </div>
             </div>
           </template>

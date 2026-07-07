@@ -1,17 +1,31 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/state.js';
 import { ik, vl } from '@/utils.js';
 import { useToast } from '@/composables/useToast.js';
 import { tryPush } from '@/composables/useSync.js';
+import SetupPage from '@/views/SetupPage.vue';
 
-const store = useAppStore();
+const store  = useAppStore();
+const route  = useRoute();
+const router = useRouter();
 const { toast } = useToast();
 
+// Setup (Google Sheets sync) was merged in as a tab here, since it's the same
+// "admin configures how the app behaves" concern as the settings below —
+// one less item in the nav for something staff never touch anyway.
+const activeTab = ref(route.query.tab === 'sync' ? 'sync' : 'general');
+function selectTab(tab) {
+  activeTab.value = tab;
+  router.replace({ path: '/settings', query: tab === 'sync' ? { tab: 'sync' } : {} });
+}
+
 // Local settings form (don't mutate store directly until save)
-const target     = ref(store.settings.dailyTarget);
-const lowStock   = ref(store.settings.lowStockThreshold);
-const globalReo  = ref(store.settings.globalReorder);
+const target        = ref(store.settings.dailyTarget);
+const lowStock      = ref(store.settings.lowStockThreshold);
+const globalReo     = ref(store.settings.globalReorder);
+const pasaCapEnabled = ref(store.settings.pasaCapEnabled !== false);
 
 // Per-product reorder overrides (keyed by productKey)
 const reorderMap = ref({});
@@ -38,6 +52,7 @@ function saveSettings() {
   store.settings.dailyTarget      = parseInt(target.value)   || 3000;
   store.settings.lowStockThreshold= parseInt(lowStock.value) || 2;
   store.settings.globalReorder    = parseInt(globalReo.value)|| 1;
+  store.settings.pasaCapEnabled   = !!pasaCapEnabled.value;
 
   // Apply per-product reorder edits to inventory
   Object.entries(reorderMap.value).forEach(([key, val]) => {
@@ -52,6 +67,7 @@ function saveSettings() {
       DailyTarget:       store.settings.dailyTarget,
       LowStockThreshold: store.settings.lowStockThreshold,
       GlobalReorder:     store.settings.globalReorder,
+      PasaCapEnabled:    store.settings.pasaCapEnabled,
     },
   });
   toast('Settings saved!', 'success');
@@ -98,88 +114,123 @@ async function changePin() {
 
 <template>
   <div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;flex-wrap:wrap;">
       <h2 style="font-size:20px;font-weight:800;margin:0;">Settings</h2>
-      <button class="btn btn-primary" @click="saveSettings">Save Settings</button>
+      <button v-if="activeTab === 'general'" class="btn btn-primary" @click="saveSettings">Save Settings</button>
     </div>
 
-    <!-- Global settings -->
-    <div class="card" style="margin-bottom:20px;">
-      <h3 style="font-size:15px;font-weight:700;margin-bottom:16px;">Sales Targets</h3>
-      <div class="g3" style="gap:16px;">
-        <div>
-          <label class="form-label">Daily Target (₱)</label>
-          <input v-model.number="target" type="number" min="0" class="form-control" />
-        </div>
-        <div>
-          <label class="form-label">Low Stock Alert (units)</label>
-          <input v-model.number="lowStock" type="number" min="0" class="form-control" />
-        </div>
-        <div>
-          <label class="form-label">Default Reorder Point</label>
-          <div style="display:flex;gap:8px;">
-            <input v-model.number="globalReo" type="number" min="0" class="form-control" />
-            <button class="btn btn-outline btn-sm" style="white-space:nowrap;" @click="applyGlobal">Apply to All</button>
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:1.5px solid var(--border);">
+      <button
+        class="tab" :class="{ active: activeTab === 'general' }"
+        style="border-radius:8px 8px 0 0;"
+        @click="selectTab('general')"
+      >General</button>
+      <button
+        class="tab" :class="{ active: activeTab === 'sync' }"
+        style="border-radius:8px 8px 0 0;"
+        @click="selectTab('sync')"
+      >
+        <svg class="ic" aria-hidden="true"><use href="#ic-zap"/></svg>
+        Google Sheets Sync
+      </button>
+    </div>
+
+    <template v-if="activeTab === 'general'">
+      <!-- Global settings -->
+      <div class="card" style="margin-bottom:20px;">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:16px;">Sales Targets</h3>
+        <div class="g3" style="gap:16px;">
+          <div>
+            <label class="form-label">Daily Target (₱)</label>
+            <input v-model.number="target" type="number" min="0" class="form-control" />
+          </div>
+          <div>
+            <label class="form-label">Low Stock Alert (units)</label>
+            <input v-model.number="lowStock" type="number" min="0" class="form-control" />
+          </div>
+          <div>
+            <label class="form-label">Default Reorder Point</label>
+            <div style="display:flex;gap:8px;">
+              <input v-model.number="globalReo" type="number" min="0" class="form-control" />
+              <button class="btn btn-outline btn-sm" style="white-space:nowrap;" @click="applyGlobal">Apply to All</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Per-product reorder table -->
-    <div class="card" style="margin-bottom:20px;">
-      <h3 style="font-size:15px;font-weight:700;margin-bottom:14px;">Per-Product Reorder Points</h3>
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead>
-            <tr style="background:var(--accent);color:#fff;">
-              <th style="padding:9px 12px;text-align:left;">Product</th>
-              <th style="padding:9px 12px;text-align:left;">Variant</th>
-              <th style="padding:9px 12px;text-align:right;">Stock</th>
-              <th style="padding:9px 12px;text-align:right;">Reorder At</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="p in store.masterList"
-              :key="ik(p)"
-              style="border-bottom:1px solid var(--border);"
-            >
-              <td style="padding:8px 12px;font-weight:600;">{{ p.name }}</td>
-              <td style="padding:8px 12px;color:var(--muted);font-size:12px;">{{ vl(p) || '—' }}</td>
-              <td style="padding:8px 12px;text-align:right;font-family:monospace;">{{ (store.inventory[ik(p)] || {}).stock ?? 0 }}</td>
-              <td style="padding:8px 12px;text-align:right;">
-                <input
-                  v-model.number="reorderMap[ik(p)]"
-                  type="number"
-                  min="0"
-                  style="width:70px;padding:5px 8px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;text-align:right;background:var(--bg);outline:none;"
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Per-product reorder table -->
+      <div class="card" style="margin-bottom:20px;">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:14px;">Per-Product Reorder Points</h3>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="background:var(--accent);color:#fff;">
+                <th style="padding:9px 12px;text-align:left;">Product</th>
+                <th style="padding:9px 12px;text-align:left;">Variant</th>
+                <th style="padding:9px 12px;text-align:right;">Stock</th>
+                <th style="padding:9px 12px;text-align:right;">Reorder At</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="p in store.masterList"
+                :key="ik(p)"
+                style="border-bottom:1px solid var(--border);"
+              >
+                <td style="padding:8px 12px;font-weight:600;">{{ p.name }}</td>
+                <td style="padding:8px 12px;color:var(--muted);font-size:12px;">{{ vl(p) || '—' }}</td>
+                <td style="padding:8px 12px;text-align:right;font-family:monospace;">{{ (store.inventory[ik(p)] || {}).stock ?? 0 }}</td>
+                <td style="padding:8px 12px;text-align:right;">
+                  <input
+                    v-model.number="reorderMap[ik(p)]"
+                    type="number"
+                    min="0"
+                    style="width:70px;padding:5px 8px;font-size:12px;border:1.5px solid var(--border);border-radius:6px;text-align:right;background:var(--bg);outline:none;"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
 
-    <!-- Admin PIN change -->
-    <div class="card">
-      <h3 style="font-size:15px;font-weight:700;margin-bottom:16px;">Change Admin PIN</h3>
-      <div style="display:flex;flex-direction:column;gap:12px;max-width:360px;">
-        <div>
-          <label style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block;">Current PIN</label>
-          <input v-model="pinCurrent" type="password" placeholder="Current PIN" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;" />
-        </div>
-        <div>
-          <label style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block;">New PIN</label>
-          <input v-model="pinNew" type="password" placeholder="New PIN (min. 4 digits)" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;" />
-        </div>
-        <div>
-          <label style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block;">Confirm New PIN</label>
-          <input v-model="pinConfirm" type="password" placeholder="Repeat new PIN" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;" />
-        </div>
-        <p v-if="pinStatus" :style="{ color: pinStatusOk ? 'var(--green)' : 'var(--red)', fontSize: '13px', margin: 0 }">{{ pinStatus }}</p>
-        <button class="btn btn-primary" style="align-self:flex-start;" @click="changePin">Update PIN</button>
+      <!-- Pasa amount cap -->
+      <div class="card" style="margin-bottom:20px;">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:10px;">Pasa Amount Cap</h3>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.7;">
+          When enabled, the Pasa markup a staff member can add on top of SRP is capped at the item's own net sales amount
+          (SRP − Unit Price) — so a promoter's commission can never exceed what ITEL earns on the sale. Turn this off to
+          allow staff to enter any Pasa amount.
+        </p>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:600;">
+          <input v-model="pasaCapEnabled" type="checkbox" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />
+          Limit Pasa amount to the item's net sales amount
+        </label>
       </div>
-    </div>
+
+      <!-- Admin PIN change -->
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:16px;">Change Admin PIN</h3>
+        <div style="display:flex;flex-direction:column;gap:12px;max-width:360px;">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block;">Current PIN</label>
+            <input v-model="pinCurrent" type="password" placeholder="Current PIN" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block;">New PIN</label>
+            <input v-model="pinNew" type="password" placeholder="New PIN (min. 4 digits)" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block;">Confirm New PIN</label>
+            <input v-model="pinConfirm" type="password" placeholder="Repeat new PIN" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;" />
+          </div>
+          <p v-if="pinStatus" :style="{ color: pinStatusOk ? 'var(--green)' : 'var(--red)', fontSize: '13px', margin: 0 }">{{ pinStatus }}</p>
+          <button class="btn btn-primary" style="align-self:flex-start;" @click="changePin">Update PIN</button>
+        </div>
+      </div>
+    </template>
+
+    <SetupPage v-else />
   </div>
 </template>

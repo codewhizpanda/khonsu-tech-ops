@@ -166,6 +166,9 @@ export async function pullFromSheets() {
       if (data.settings.DailyTarget)      store.settings.dailyTarget      = Number(data.settings.DailyTarget);
       if (data.settings.LowStockThreshold) store.settings.lowStockThreshold = Number(data.settings.LowStockThreshold);
       if (data.settings.GlobalReorder)    store.settings.globalReorder    = Number(data.settings.GlobalReorder);
+      if (data.settings.PasaCapEnabled !== undefined && data.settings.PasaCapEnabled !== null && data.settings.PasaCapEnabled !== '') {
+        store.settings.pasaCapEnabled = data.settings.PasaCapEnabled === true || data.settings.PasaCapEnabled === 'true' || data.settings.PasaCapEnabled === 'TRUE';
+      }
       localStorage.setItem('kt_settings', JSON.stringify(store.settings));
     }
 

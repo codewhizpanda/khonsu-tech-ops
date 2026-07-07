@@ -84,6 +84,7 @@ async function pushAll() {
         DailyTarget:       store.settings.dailyTarget,
         LowStockThreshold: store.settings.lowStockThreshold,
         GlobalReorder:     store.settings.globalReorder,
+        PasaCapEnabled:    store.settings.pasaCapEnabled,
       },
     });
 
@@ -210,7 +211,7 @@ function initSheets() {
     'Inventory': ['Category','Model','RAM','Storage','Colors','Unit Price','SRP','Stock','Reorder Point'],
     'Purchase Orders': ['PO Number','Date','Supplier','Items','Quantities','Status','Approver'],
     'PO Items': ['POID','ItemName','Qty','Color'],
-    'Payment Logs': ['ID','Date','Store','Method','Amount','Reference','Staff','Origin','Notes','Status','Credited Date','Credited By'],
+    'Payment Logs': ['ID','Date','Store','Method','Amount','Reference','Staff','Origin','Notes','Status','Credited Date','Credited By','Settled Date','Settled By'],
     'Promotions': ['BundleID','Name','Price','MainProductKey','MainProductName','AddonProductKey','AddonProductName'],
     'Freebies': ['MainProductKey','FreebieProductKey','MainProductName','FreebieProductName'],
     'Settings': ['Key','Value'],
@@ -439,6 +440,7 @@ function saveSettings(d) {
   if (s.DailyTarget !== undefined)       setSettingValue('DailyTarget', s.DailyTarget);
   if (s.LowStockThreshold !== undefined) setSettingValue('LowStockThreshold', s.LowStockThreshold);
   if (s.GlobalReorder !== undefined)     setSettingValue('GlobalReorder', s.GlobalReorder);
+  if (s.PasaCapEnabled !== undefined)    setSettingValue('PasaCapEnabled', s.PasaCapEnabled);
   return respond({ status: 'Settings saved' });
 }
 
@@ -504,6 +506,7 @@ function getAllData() {
     DailyTarget:       getSettingValue('DailyTarget'),
     LowStockThreshold: getSettingValue('LowStockThreshold'),
     GlobalReorder:     getSettingValue('GlobalReorder'),
+    PasaCapEnabled:    getSettingValue('PasaCapEnabled'),
   };
 
   const poItemsByPOID = {};
@@ -544,7 +547,7 @@ function logPayment(d) {
   if (!sh) return respond({ error: 'No Payment Logs sheet' });
   sh.appendRow([d.id, d.date, d.store, d.method, d.amount || 0, d.reference || '',
     d.staff || '', d.origin || 'manual', d.notes || '', d.status || 'pending',
-    d.creditedDate || '', d.creditedBy || '']);
+    d.creditedDate || '', d.creditedBy || '', d.settledDate || '', d.settledBy || '']);
   return respond({ status: 'Payment logged' });
 }
 
@@ -557,6 +560,8 @@ function updatePaymentStatus(d) {
       sh.getRange(i + 1, 10).setValue(d.status || 'pending');
       sh.getRange(i + 1, 11).setValue(d.creditedDate || '');
       sh.getRange(i + 1, 12).setValue(d.creditedBy || '');
+      sh.getRange(i + 1, 13).setValue(d.settledDate || '');
+      sh.getRange(i + 1, 14).setValue(d.settledBy || '');
       break;
     }
   }
@@ -621,6 +626,8 @@ function getPaymentLogs() {
       Status: String(r[9] || 'pending'),
       CreditedDate: String(r[10] || ''),
       CreditedBy: String(r[11] || ''),
+      SettledDate: String(r[12] || ''),
+      SettledBy: String(r[13] || ''),
     };
   });
   return respond({ logs: logs });
@@ -701,8 +708,6 @@ async function copyScript() {
 
 <template>
   <div>
-    <h2 style="font-size:20px;font-weight:800;margin-bottom:20px;">Setup</h2>
-
     <!-- Step 1 -->
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">

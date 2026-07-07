@@ -2,237 +2,116 @@
 
 ## What This Project Is
 
-A single-file, zero-dependency Sales Operations System for **Khonsu Electronic Gadgets Trading (ITEL Mobile)**, located at Space No. K424.6, Festival Mall, Alabang, Muntinlupa City, Philippines.
+A point-of-sale and back-office system for **Khonsu Electronic Gadgets Trading (ITEL Mobile)**, located at Space No. K424.6, Festival Mall, Alabang, Muntinlupa City, Philippines.
 
-The entire application lives in **one file**: `tecnix-ops_25.html`. There is no build system, no package manager, no dependencies, and no server requirement. Open the file in a browser to run it.
+It's a **Vue 3 + Vite SPA** with `localStorage` as the primary datastore and an optional Google Apps Script Web App as a cross-device sync target (mirrored to a Google Sheet). Deployed to GitHub Pages via GitHub Actions on every push to `main`.
 
----
-
-## File Structure
-
-```
-tecnix-ops_25.html   ← The entire application (HTML + CSS + JS, ~1732 lines)
-```
-
-The file has three sections in order:
-1. `<style>` block — all CSS, including CSS custom properties
-2. HTML body — lock screen, header, nav, and six page `<div>` elements with modals
-3. `<script>` block — all application logic (vanilla JS, global scope)
+For full architectural detail — data flow diagrams, every composable, the complete Google Sheets schema tab-by-tab, sync semantics, and known technical debt — see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**. This file is a condensed working guide; ARCHITECTURE.md is the source of truth and is kept current.
 
 ---
 
-## Application Architecture
+## Tech Stack
 
-### Single-Page Application Pattern
-Six "pages" are `<div class="page">` elements. Only one has `.active` at a time; `showPage(name, event)` switches between them.
-
-The **Log Sale** page has four sub-screens (`s-picker`, `s-detail`, `s-review`, `s-report`) toggled by `showS(name)`.
-
-### State Management
-All state is global JavaScript variables declared at line ~679:
-
-| Variable | Purpose |
+| Layer | Choice |
 |---|---|
-| `currentUser` | Active user (Sam, Joyce, Admin) |
-| `masterList` | Full product catalog (including obsolete items) |
-| `PRODUCTS` | Active products only (`masterList.filter(p => !p.obsolete)`) |
-| `inventory` | Map of `productKey → {stock, reorder}` |
-| `predefinedBundles` | Seasonal promotion bundles |
-| `productFreebies` | Map of `productKey → freebieProductKey` |
-| `settings` | `{dailyTarget, lowStockThreshold, globalReorder}` |
-| `saleRows` | Confirmed sale rows for the current day |
-| `pendingItems` | Items staged but not yet confirmed in the current SO |
-| `currentSO` | Active Sales Order number string |
-| `purchaseOrders` | Array of PO objects |
-| `selectedProduct` | Product selected on the detail screen |
-| `selectedAddon` | Add-on selected on the detail screen |
-| `scriptUrl` | Google Apps Script Web App URL |
+| Framework | Vue 3 (`<script setup>` SFCs, Composition API) |
+| Build tool | Vite 5 (pinned — Node 20.12 environment constraint) |
+| State | Pinia 2, single setup-store `useAppStore()` |
+| Routing | Vue Router 4, hash mode (`#/sales`) |
+| PWA | vite-plugin-pwa 0.20, `autoUpdate` |
+| Styling | Plain CSS (`css/styles.css`), CSS custom properties, no framework |
+| Persistence | Browser `localStorage`, source of truth when offline |
+| Optional backend | Google Apps Script Web App bound to a Google Sheet |
+| Hosting | GitHub Pages via GitHub Actions (`base: '/khonsu-tech-ops/'`) |
 
-### Persistence
-All data is persisted to `localStorage` — no database, no server (unless Google Sheets is connected).
-
-| Key | Content |
-|---|---|
-| `kt_ml` | Master list array |
-| `kt_inv` | Inventory object |
-| `kt_bundles` | Bundles/promotions array |
-| `kt_freebies` | Freebies object |
-| `kt_settings` | Settings object |
-| `kt_so` | SO counter integer |
-| `kt_pc` | Bundle/promo code counter integer |
-| `kt_pos` | Purchase orders array |
-| `kt_url` | Google Sheets script URL |
+**Run locally:** `npm run dev` (Node 20 + npm required). `npm run build` outputs to `dist/`.
 
 ---
 
-## Key Data Structures
+## Project Structure
 
-### Product
-```js
-{
-  category: 'Smart Phone',   // Bar Phone | Smart Phone | Tablet | Earbuds | Smart Watch | Power Bank | Others
-  name: 'A50C',
-  ram: '2GB',                // empty string for non-phones
-  storage: '64GB',           // empty string for non-phones
-  unitPrice: 2789,           // cost / purchase price (₱)
-  srp: 2999,                 // suggested retail price (₱)
-  colors: 'Black, White',    // comma-separated string
-  obsolete: false
-}
+```
+index.html                  ← Vite entry HTML (mounts #app)
+vite.config.js               ← base path, Vue + PWA plugins, "@" → /src alias
+css/styles.css               ← all app styling
+.github/workflows/deploy.yml  ← CI: build + deploy dist/ to GitHub Pages
+
+src/
+  main.js                     ← createApp, Pinia, Router
+  App.vue                      ← shell: SvgSprite + LockScreen | NavBar+RouterView + SyncBanner/Overlay/Toast
+  router/index.js               ← 11 routes, hash history, adminOnly guard
+  stores/state.js                ← Pinia store: all app state + initApp() bootstrapping
+  utils.js                        ← ik(), vl(), fmt(), date helpers, ic()
+  data.js                          ← DEF (default catalogue), COLORS map, ADDON_CATS
+
+  composables/
+    useSales.js                    ← sales-flow logic (IMEI-aware), PO generation, print report
+    useSync.js                      ← Google Sheets sync: tryPush, enqueue, processQueue, pullFromSheets
+    useToast.js                      ← module-singleton toast state
+    usePaymentLogs.js                 ← non-cash payment log CRUD/reconciliation
+    useErrorLog.js                     ← sync-failure/runtime-error logging
+
+  components/    ← SvgSprite, LockScreen, NavBar, SyncBanner, SyncOverlay, Toast,
+                    ProductGrid, ProductCard, SaleForm, AddonPicker, IMEIPicker,
+                    CustomerForm, ReviewSale, TodayReport, Scanner
+
+  views/         ← SalesPage, InventoryPage, PurchaseOrdersPage, MasterListPage,
+                    SettingsPage (tabs: General / Google Sheets Sync — embeds SetupPage as a
+                    child component, not a separate route), SetupPage, RestockPage,
+                    ReportsPage, DashboardPage, PaymentLogsPage, IssuesPage
 ```
 
-### Inventory Entry
-```js
-inventory['A50C 2GB/64GB'] = { stock: 4, reorder: 1 }
-```
-The key is produced by `ik(product)` — see utility functions below.
+Nav items are grouped by section in `NavBar.vue` (`ops` → `insights` → `catalog` → `system`), rendered with a divider/label between groups. `/setup` is a router redirect to `/settings?tab=sync`, not a standalone nav item — Setup was merged into Settings as its "Sync" tab since both are the same admin-configuration concern.
 
-### Sale Row (confirmed transaction)
-```js
-{
-  id, so, bundle, itemName, variant, color, qty,
-  unitPrice, srp, soldPrice, pasaPrice, discount, netSales,
-  payment,      // Cash | Card | Home Credit
-  soldType,     // Walk-in | Pasa
-  promoter, staff, productKey,
-  isAddon, isPromotion, isPromoAddon,
-  customer      // { name, contact, email } | null
-}
-```
-
-### Purchase Order
-```js
-{
-  id: 'PO-123456',
-  date: '6/21/2026, 10:00:00 AM',
-  supplier: 'Tecnix Trading',
-  approver: 'Admin',
-  items: [{ name, qty, color }],
-  status: 'pending' | 'sent'
-}
-```
+**No legacy code in the working tree.** The original single-file `tecnix-ops_25.html` and an intermediate vanilla ES-module (`js/*.js`) version both existed historically but were fully replaced by `src/` — they exist only in git history (`backup/vanilla-js` branch, `v1.0-vanilla-js` tag). Do not assume either exists; do not reintroduce global-scope inline-`onclick` patterns from that era.
 
 ---
 
-## Utility Functions
+## State Management
 
-Three short helpers are used everywhere:
+All runtime state lives in one Pinia setup store, `useAppStore()` (`src/stores/state.js`) — no props-drilling, components call it directly. Key pieces: `currentUser`, `masterList`/`PRODUCTS` (computed, excludes obsolete), `inventory`, `predefinedBundles`, `productFreebies`, `settings`, `saleRows`, `pendingItems`, `paymentLogs`, `errorLogs`, `currentSO`, `purchaseOrders`, `scriptUrl`, `units` (IMEI records), `syncQueue`.
 
-| Function | Purpose |
-|---|---|
-| `ik(p)` | Inventory key: `p.name + ' ' + p.ram + '/' + p.storage` (omits empty parts) |
-| `vl(p)` | Variant label: `p.ram + ' / ' + p.storage` (empty string when both missing) |
-| `fmt(n)` | Philippine Peso format: `₱1,234.00` or `'N/A'` for zero/null |
+`initApp()` (called once from `App.vue`'s `onMounted`) seeds/loads all of the above from `localStorage`, restores today's sales if still same-day, and back-fills dummy IMEIs for pre-existing stock.
+
+Persistence keys are prefixed `kt_*` (e.g. `kt_ml`, `kt_inv`, `kt_units`, `kt_queue`). Full key list and every data structure (Product, IMEI unit, Sale row, Purchase Order, Payment log, Issue log, Promotion) is in [docs/ARCHITECTURE.md §5–6](docs/ARCHITECTURE.md#5-state-management).
 
 ---
 
-## Business Logic
+## Business Logic Essentials
 
-### Sales Flow
-1. User selects product on **Picker** screen → `openDetail(key)`
-2. User fills in variant, color(s), qty, sold type, payment → `recalc()` updates total
-3. User taps **"+ Add Another Item"** → `addAnotherItem()` stages to `pendingItems`, returns to Picker
-4. User taps **"Review Sale →"** → `goToReview()` stages current item, generates SO number, shows Review screen
-5. User taps **"✓ Customer Approved — Confirm"** → `confirmSale()` moves `pendingItems` → `saleRows`, decrements inventory, clears SO
-6. **Report** screen aggregates `saleRows` for the day; **Submit** posts to Google Sheets and auto-generates PO for low-stock items
-
-### Pricing
-- **Walk-in**: customer pays `SRP`
-- **Pasa** (promoter/referral): customer pays `SRP + pasaPrice`; promoter gets the pasa markup
-- **Promotion/Bundle**: customer pays fixed `bundlePrice` for phone + accessory combo
-- `netSales = (soldPrice - unitPrice) × qty`
-
-### SO / Code Numbering
-- Sales Order: `SO-YYMMDD-XXXX` (e.g. `SO-260621-0001`)
-- Bundle code: `BDL-YYMMDD-XXX`
-- Promo code: `PRO-YYMMDD-XXX`
-- PO: `PO-{last 6 digits of Date.now()}`
-
-### Stock Management
-- Initial stock defaults to 4 units per product
-- `confirmSale()` decrements stock for every item confirmed (main product, add-on, promo add-on, freebie)
-- After day submit, items at or below their `reorder` point are automatically added to a pending PO
-
-### Users and Permissions
-- **Sam / Joyce**: only see the Log Sale tab
-- **Admin**: sees all tabs (Inventory, Purchase Orders, Master List, Settings, Setup)
-- No real authentication — user is chosen on the lock screen
+- **Sales flow**: Picker → Detail (variant/color/IMEI, sold type, payment, add-on) → Review → Confirm → Report. Four sub-screens toggled by a local ref inside `SalesPage.vue`, not by routing.
+- **Pricing**: Walk-in pays SRP; Pasa pays SRP + pasa markup; Promotions pay a fixed bundle price. `netSales = (soldPrice − unitPrice) × qty`.
+- **Pasa cap**: `settings.pasaCapEnabled` (default `true`, toggle in Settings → General) caps the per-unit Pasa markup at the item's own net sales amount (`SRP − unitPrice`), so a promoter's commission can't exceed what ITEL earns on the sale. Enforced in `SaleForm.vue` (UI clamp) and again in `useSales.js buildPendingItem()` (defense in depth).
+- **IMEI tracking**: Smart Phone / Bar Phone / Tablet categories are unit-tracked (`units` array, one row per physical unit with a real or dummy IMEI); accessories remain quantity-based.
+- **Numbering**: SO `SO-YYMMDD-XXXX`, bundle `BDL-YYMMDD-XXX`, promo `PRO-YYMMDD-XXX`, PO `PO-{6 digits of Date.now()}`. Counters are per-device (`localStorage`), not cross-device coordinated.
+- **Stock**: new products default to `{stock: 4, reorder: 1}`; `confirmSale()` decrements for every line (main, add-on, promo-addon, freebie) or marks IMEI units sold; closing the day folds at/below-reorder items into a pending PO.
+- **Payment logs / AR-AP**: ITEL entries are `pending → credited` (Accounts Receivable). Bisen entries are `pending → credited → settled` (Accounts Payable) — `settlePayment()` in `usePaymentLogs.js` only allows the credited→settled transition, i.e. Admin must confirm funds landed before marking them paid out to Bisen. AP's "still owed" (pending+credited) vs. "settled to date" split is visible to all staff on `/payment-logs`, not just Admin.
+- **Users**: Sam/Joyce see Log Sale + Receive Stock + Payment Logs only; Admin sees everything and is gated by a PIN (Sheets-verified with a local SHA-256 fallback, default `1234`) — not real security, just a soft convenience gate.
 
 ---
 
-## CSS Conventions
+## Google Sheets Sync (Optional Backend)
 
-All styles are in the `<style>` block at the top. Custom properties are declared on `:root`:
+`useSync.js` is the whole story: `tryPush()` (immediate POST, falls back to `enqueue()` + logs an issue on failure), `processQueue()` (drains the offline queue, manual "Sync Now" or on the `online` event), `pullFromSheets()` (hydrates local state from Sheets, only when the queue is empty, to avoid clobbering unsynced local edits).
 
-```
---bg, --surface, --surface2, --border
---accent (#1b2e6b), --accent2 (#2d4499), --accent-light
---green, --red, --yellow
---text, --muted, --white, --moon (#c8d0e8)
-```
-
-**Class naming** is minimal/abbreviated — this is intentional to keep the file compact:
-- `.pc` = product card, `.sc` = stat card, `.sw` = search wrapper
-- `.sb` = stock badge, `.sok/.slow/.sout` = stock status colors
-- `.g2/.g3` = 2/3-column grids, `.pgrid` = product grid
-- `.btn-primary/.btn-success/.btn-danger/.btn-outline/.btn-sm/.btn-lg` = button variants
-
-Fonts: **Inter** (UI) and **JetBrains Mono** (prices, codes) loaded from Google Fonts.
-
----
-
-## Google Sheets Integration (Optional)
-
-The **Setup** tab walks users through connecting a Google Apps Script Web App as a backend. The Apps Script source is embedded in the HTML at line ~506.
-
-### Script Actions (POST)
-| Action | What it does |
-|---|---|
-| `init` | Creates "Sales Log", "Inventory", "Purchase Orders" sheets with headers |
-| `logSale` | Appends rows to Sales Log; decrements Inventory sheet stock |
-| `logPO` | Appends a row to Purchase Orders sheet |
-| `pushInventory` | Replaces all Inventory sheet rows |
-| `pushMasterList` | Replaces all Master List sheet rows |
-
-### Script Actions (GET)
-| Action | What it does |
-|---|---|
-| `ping` | Returns `{status: 'ok'}` |
-| `getMasterList` | Returns all rows from Master List sheet as JSON |
-
-CORS errors are expected during local development; the deployed Web App URL will work from a browser context.
+The Apps Script source lives embedded in `SetupPage.vue` (`SCRIPT_SOURCE`), copy-pasted by the store owner into their own Apps Script project. It backs 11 sheet tabs (Sales Log, Inventory, Purchase Orders, PO Items, Payment Logs, Promotions, Freebies, Settings, Units, Issue Log, Master List). See [docs/ARCHITECTURE.md §9–10](docs/ARCHITECTURE.md#9-offline-first-sync-architecture) for the full action list, tab schemas, and sync caveats — most importantly: **updating `SCRIPT_SOURCE` in this repo does not update anyone's already-deployed script.** A store owner must re-copy and redeploy (Deploy → Manage Deployments → Edit → New Version) before new actions take effect.
 
 ---
 
 ## Development Workflow
 
-### Making Changes
-1. Open `tecnix-ops_25.html` in a text editor
-2. Modify HTML, the `<style>` block, or the `<script>` block directly
-3. Open/refresh the file in a browser to test
-4. No build step, no compiler, no linter
-
-### Testing
-There is no test suite. Manually test the full sales flow:
-- Login as Sam → select a product → fill details → review → confirm
-- Login as Admin → check Inventory, Master List, Settings, Setup tabs
-- Test Pasa sales, multi-item SOs, bundle promotions, product freebies
-
-### Adding Products
-Add entries to the `DEF` array (line ~629) to change the default product catalog. Users can also add products at runtime via Master List → "New Item". The `COLORS` object (line ~628) maps categories to default color options.
-
-### Modifying the Google Apps Script
-The script source is stored as the `innerText` of `<span id="scriptText">`. Edit it directly in the HTML. The "Copy" button copies it so users can paste it into Google Apps Script editor.
+1. `npm run dev`, edit `.vue`/`.js` files under `src/` directly.
+2. No inline `onclick` — use standard Vue event bindings (`@click`, etc.) and component props/emits.
+3. Keep `css/styles.css` class naming consistent with the abbreviated conventions carried over from the pre-Vue era (`.pc`, `.sc`, `.sw`, `.sb`/`.sok`/`.slow`/`.sout`, `.g2`/`.g3`, `.pgrid`, `.btn-*`) — intentional, not accidental compactness.
+4. There is no automated test suite. Manually test the full sales flow (Sam/Joyce: product → detail → review → confirm → report) and the Admin tabs (Inventory, PO, Master List, Settings, Setup, Restock, Reports, Dashboard, Payment Logs, Issues) after any change that touches them.
+5. Adding products: edit `DEF` in `src/data.js`, or use Master List → "New Item" at runtime.
+6. Modifying the Apps Script: edit the `SCRIPT_SOURCE` string in `SetupPage.vue` directly, keeping every frontend-called action (see `useSync.js`, `usePaymentLogs.js`, `useErrorLog.js`) backed by a matching server-side handler.
 
 ---
 
 ## Important Constraints
 
-- **Single file** — do not split into multiple files unless explicitly requested. The single-file format is intentional for easy deployment (share the file, open in browser).
-- **No external dependencies** — do not add npm packages, CDN links beyond Google Fonts, or any framework.
-- **No build step** — the file must open and run directly in a browser.
-- **Minified style is intentional** — the CSS and JS are written compactly. Maintain this style when adding code.
-- **Global scope JS** — all functions and variables are global. This is intentional; do not introduce modules.
-- **localStorage only** — all data lives in the browser. Nothing is sent anywhere unless the user connects a Google Sheets URL.
-- **Philippine Peso (₱)** — all currency is in PHP. Use `fmt(n)` for display; use `en-PH` locale for formatting.
-- **Inline event handlers** — the app uses `onclick="..."` attributes. This is consistent with the existing codebase; do not refactor to `addEventListener` unless the user asks.
+- **Currency**: Philippine Peso (₱) throughout — use `fmt(n)` for display, `en-PH` locale for formatting.
+- **No cross-device counter coordination** — SO/PO numbers can collide if two devices are used simultaneously without a synced counter (documented, unresolved).
+- **`localStorage` is origin-scoped** — moving the deployed URL orphans local data on devices already in use.
+- **Keep docs/ARCHITECTURE.md current.** It's the authoritative technical reference; update it (not just this file) when architecture changes.

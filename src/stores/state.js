@@ -8,7 +8,7 @@ export const useAppStore = defineStore('app', () => {
   const masterList    = ref([]);
   const predefinedBundles = ref([]);
   const productFreebies   = ref({});
-  const settings      = ref({ dailyTarget: 3000, lowStockThreshold: 2, globalReorder: 1 });
+  const settings      = ref({ dailyTarget: 3000, lowStockThreshold: 2, globalReorder: 1, pasaCapEnabled: true });
   const inventory     = ref({});
   const saleRows      = ref([]);
   const pendingItems  = ref([]);
