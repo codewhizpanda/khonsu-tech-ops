@@ -27,6 +27,7 @@ It is built to run **without a dedicated backend**: the browser is the primary d
 | Styling | Plain CSS (`css/styles.css`), CSS custom properties | No Tailwind/UI kit |
 | Fonts | Google Fonts — Inter (UI), JetBrains Mono (numbers/codes) | `@import` in CSS + `<link>` preconnect in `index.html` |
 | Persistence | Browser `localStorage` | Source of truth when offline |
+| Barcode scanning | Native `BarcodeDetector` where available, **`@zxing/browser` + `@zxing/library`** fallback elsewhere | Safari/iOS never implemented the Shape Detection API — `Scanner.vue` lazy-`import()`s ZXing only on browsers without `BarcodeDetector`, so Chrome/Android never downloads it |
 | Optional backend | **Google Apps Script** Web App bound to a Google Sheet | Free, no hosting; acts as the sync target and cross-device source of truth |
 | Hosting | **GitHub Pages**, deployed via GitHub Actions | `vite.config.js` sets `base: '/khonsu-tech-ops/'` |
 
@@ -115,7 +116,7 @@ src/
     CustomerForm.vue                        ← optional customer name/contact/email captured on first item
     ReviewSale.vue                           ← pending items list + SO number + confirm button
     TodayReport.vue                           ← today's sales table, summary, Submit/Close Day/Print
-    Scanner.vue                                ← BarcodeDetector camera modal, used by IMEIPicker & RestockPage
+    Scanner.vue                                ← camera scan modal (native BarcodeDetector, ZXing fallback on Safari/iOS), used by IMEIPicker & RestockPage
 
   views/                                       ← routed pages
     SalesPage.vue                               ← orchestrates picker/detail/review/report sub-screens
@@ -350,14 +351,14 @@ productFreebies['A50C 2GB/64GB'] = 'EARBUDS NEO'   // main product key → freeb
 ### 8.1 Log Sale (`/sales`, `SalesPage.vue`) — all users
 Four sub-screens toggled by a local `screen` ref (`picker` → `detail` → `review` → `report`), not by routing:
 - **Picker** (`ProductGrid.vue`): category tabs (mobile: bottom-sheet filter) + search; taps a product card or a Promotions tile.
-- **Detail** (`SaleForm.vue`): variant/color entry (or IMEI scan/select for phone/tablet/bar-phone via `IMEIPicker.vue` — camera scan via `Scanner.vue`, same BarcodeDetector modal RestockPage uses, or type an IMEI; the unit grid stays empty until something is typed/scanned, so a sale never starts by browsing every serial in stock), quantity, Walk-in vs Pasa (+ promoter name, + pasa markup), payment method (Cash/Card/Home Credit), optional accessory add-on (`AddonPicker.vue`, price editable), optional customer info (`CustomerForm.vue`, captured once per SO). Actions: **+ Add Another Item** (stages and returns to picker) or **Review Sale →**.
+- **Detail** (`SaleForm.vue`): variant/color entry (or IMEI scan/select for phone/tablet/bar-phone via `IMEIPicker.vue` — camera scan via `Scanner.vue`, same modal RestockPage uses, or type an IMEI; the unit grid stays empty until something is typed/scanned, so a sale never starts by browsing every serial in stock), quantity, Walk-in vs Pasa (+ promoter name, + pasa markup), payment method (Cash/Card/Home Credit), optional accessory add-on (`AddonPicker.vue`, price editable), optional customer info (`CustomerForm.vue`, captured once per SO). Actions: **+ Add Another Item** (stages and returns to picker) or **Review Sale →**.
 - **Review** (`ReviewSale.vue`): lists all staged items with subtotals/grand total; can edit or remove any line; **✓ Customer Approved — Confirm** calls `confirmSale()`.
 - **Report** (`TodayReport.vue`): today's confirmed rows, summary stats, **Submit/Close Day** and **Print** (opens a formatted printable HTML report in a new window).
 - A floating action button on the picker screen surfaces "Review (N items)" or "View Report (N)" depending on state; an "Active SO" banner with a Clear button appears once an SO number has been issued.
 
 ### 8.2 Receive Stock (`/restock`, `RestockPage.vue`) — all users
 Delivery-receipt intake: DR number/date/supplier header, then per-line product selection (typed/datalist match against `PRODUCTS`) with color, and either:
-- **IMEI mode** (phone/tablet categories): type or camera-scan (`Scanner.vue`, `BarcodeDetector` API) each unit's IMEI, staged one at a time, duplicate-IMEI guarded against both existing `units` and the current draft.
+- **IMEI mode** (phone/tablet categories): type or camera-scan (`Scanner.vue`) each unit's IMEI, staged one at a time, duplicate-IMEI guarded against both existing `units` and the current draft.
 - **Qty mode** (accessories): a plain quantity add.
 
 **Confirm Receipt** creates new `available` unit records (IMEI items), recomputes derived stock for those product keys from `units`, increments raw stock for qty-based items, persists to `localStorage`, and pushes `saveUnits` + `updateInventoryItems` to Sheets.
@@ -661,6 +662,7 @@ There is no real authentication — `router.beforeEach` only checks `store.curre
 
 ## 13. Known Constraints & Technical Debt
 
+- **ZXing fallback is slower than native `BarcodeDetector`** — Safari/iOS decodes via repeated canvas-frame sampling in JS rather than a native/hardware-accelerated detector, so it can take noticeably longer to lock onto a barcode (worse in low light or at an angle) than the Chrome/Android path. No UI currently distinguishes which path is active; if this becomes a support issue, a visible "camera decode mode" indicator would be the next step.
 - **Stale already-deployed scripts** — the Apps Script/frontend action mismatch that used to be this section's top item is now closed in the *reference* script (see [§9](#9-offline-first-sync-architecture)), but that fix only reaches a store owner's *live* script if they re-copy and redeploy a new version. Anyone running an older deployed script still has the old gap until they do. There's no version-check or staleness warning in the app — a mismatched deployment just silently fails the same way the gap always did, now logged to `/issues` at least, so it's discoverable instead of invisible.
 - **Duplicate PWA manifest** — `manifest.json` (repo root) and `public/manifest.json` are byte-identical; only the `public/` copy is actually served by Vite. The root copy appears to be leftover from before the Vue migration and should be removed or documented as intentionally duplicated.
 - **No cross-device SO/PO numbering coordination** — counters are per-device/localStorage; concurrent devices can produce duplicate SO/PO numbers.

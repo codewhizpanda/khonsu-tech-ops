@@ -7,48 +7,71 @@ const emit  = defineEmits(['detected', 'close']);
 
 const { toast } = useToast();
 const videoRef  = ref(null);
-let stream      = null;
-let animId      = null;
+let stream        = null;
+let animId        = null;
+let zxingControls  = null; // set when using the ZXing fallback (Safari/iOS — see openCamera())
+
+const CONSTRAINTS = { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } } };
 
 async function openCamera() {
-  if (!('BarcodeDetector' in window)) {
-    toast('Camera scanning not supported on this browser — type IMEI manually', 'error');
-    emit('close');
-    return;
-  }
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } },
-    });
-    videoRef.value.srcObject = stream;
-    await new Promise(r => { videoRef.value.onloadedmetadata = r; });
-    videoRef.value.play();
-
-    const detector = new BarcodeDetector({
-      formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code'],
-    });
-
-    const scan = async () => {
-      if (!stream) return;
-      try {
-        const barcodes = await detector.detect(videoRef.value);
-        if (barcodes.length) {
-          closeCamera();
-          emit('detected', barcodes[0].rawValue);
-          return;
-        }
-      } catch { /* detection error on this frame, continue */ }
-      if (stream) animId = requestAnimationFrame(scan);
-    };
-    animId = requestAnimationFrame(scan);
+    // Safari/iOS never implemented the Shape Detection API's BarcodeDetector —
+    // fall back to a pure-JS decoder (ZXing) there, lazy-loaded so Chrome/
+    // Android users (the common case) never download it.
+    if ('BarcodeDetector' in window) {
+      await startNativeDetector();
+    } else {
+      await startZXingFallback();
+    }
   } catch {
     toast('Camera access denied — allow camera permission and try again', 'error');
     emit('close');
   }
 }
 
+async function startNativeDetector() {
+  stream = await navigator.mediaDevices.getUserMedia(CONSTRAINTS);
+  videoRef.value.srcObject = stream;
+  await new Promise(r => { videoRef.value.onloadedmetadata = r; });
+  videoRef.value.play();
+
+  const detector = new BarcodeDetector({
+    formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code'],
+  });
+
+  const scan = async () => {
+    if (!stream) return;
+    try {
+      const barcodes = await detector.detect(videoRef.value);
+      if (barcodes.length) {
+        closeCamera();
+        emit('detected', barcodes[0].rawValue);
+        return;
+      }
+    } catch { /* detection error on this frame, continue */ }
+    if (stream) animId = requestAnimationFrame(scan);
+  };
+  animId = requestAnimationFrame(scan);
+}
+
+async function startZXingFallback() {
+  const { BrowserMultiFormatReader } = await import('@zxing/browser');
+  const reader = new BrowserMultiFormatReader();
+  // decodeFromConstraints acquires the camera itself (matching our own
+  // getUserMedia constraints) and assigns the stream to videoRef for us.
+  zxingControls = await reader.decodeFromConstraints(CONSTRAINTS, videoRef.value, (result) => {
+    if (result) {
+      closeCamera();
+      emit('detected', result.getText());
+    }
+    // A per-frame "not found" is expected and reported via the (unused) error
+    // argument on every frame without a barcode in view — not a real failure.
+  });
+}
+
 function closeCamera() {
   if (animId) { cancelAnimationFrame(animId); animId = null; }
+  if (zxingControls) { zxingControls.stop(); zxingControls = null; }
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   emit('close');
 }
