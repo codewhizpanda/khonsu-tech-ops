@@ -59,6 +59,8 @@ The app ships pre-seeded with your real ITEL catalog (47 SKUs — Bar Phones, Sm
 - [ ] Review **Promotions** and **Freebies** — the seed data likely has none; add your current bundle deals and freebie pairings if any are active.
 - [ ] **Inventory page**: this is where it gets store-specific. Every product defaults to **stock: 4** regardless of what's physically on the shelf. Correct every SKU's actual on-hand count — this is the single most important data-accuracy step before go-live, since Sold/Report/PO logic all depend on it.
 
+You can make all of the above edits either in the app itself, or in bulk directly in the Google Sheet's **Master List**/**Inventory** tabs (faster for a large one-time correction) — then **Settings → Google Sheets Sync → Pull Latest Data** to bring the corrected numbers into any device without waiting for the next login. Note this only carries prices/quantities; it does **not** by itself give you real per-unit IMEIs — that's Phase 6.
+
 ---
 
 ## Phase 6 — IMEI reality check (Smart Phones / Bar Phones / Tablets only)
@@ -68,7 +70,10 @@ This is the step it's easiest to skip and regret. Read it even if you're in a hu
 The app auto-generates placeholder **`DUMMY-...`** IMEIs to match whatever stock count you enter in Phase 5 — it has no way to know the *real* IMEI printed on a box unless someone actually scans it in.
 
 - [ ] Decide: do you want barcode scanning to work against your **existing** physical inventory (units already on the shelf before launch), or only for **new deliveries** going forward?
-  - **Existing stock, scan-ready from day one:** for each phone/tablet/bar-phone unit currently in stock, go to **Receive Stock** and scan (or type) its real IMEI. This effectively "re-receives" your current inventory with real IMEIs. Use a DR number like `INITIAL-STOCKTAKE` so it's identifiable in the log later. This takes real time proportional to your unit count — budget for it.
+  - **Existing stock, scan-ready from day one — two ways to load it:**
+    - *One at a time, in-app:* for each phone/tablet/bar-phone unit currently in stock, go to **Receive Stock** and scan (or type) its real IMEI. Use a DR number like `INITIAL-STOCKTAKE` so it's identifiable in the log later.
+    - *Bulk, directly in the Sheet (faster for a large stocktake):* paste rows straight into the **Units** tab — columns are `IMEI, ProductKey, ProductName, Color, Status, DRNumber, ReceivedDate, SONumber, SoldDate, IsDummy` (`Status` = `available`, `IsDummy` = `false`, `ProductKey` must exactly match the product's key format, e.g. `A100C 3GB/64GB`). Then in the app: **Settings → Google Sheets Sync → Pull Latest Data.** Real units automatically replace any local `DUMMY-...` placeholder for the same product once they cover its stock count — no manual cleanup needed.
+    - Either way, this takes real time proportional to your unit count — budget for it.
   - **New deliveries only:** skip this. Existing stock keeps its dummy placeholders (quantity-accurate, but scanning a real box's barcode against old stock won't find a match — staff will need to type/select the unit manually instead of scanning it, same as before this feature existed). Every unit received *after* launch via Receive Stock will have a real, scannable IMEI.
 - [ ] Either way, confirm at least one test scan works end-to-end (Phase 8 covers this).
 

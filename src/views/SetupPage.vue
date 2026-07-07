@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useAppStore } from '@/stores/state.js';
 import { ik } from '@/utils.js';
 import { useToast } from '@/composables/useToast.js';
+import { pullFromSheets, pullUnits } from '@/composables/useSync.js';
 
 const store = useAppStore();
 const { toast } = useToast();
@@ -11,6 +12,8 @@ const connectStatus = ref('');
 const connectOk     = ref(false);
 const pushStatus    = ref('');
 const pushing       = ref(false);
+const pullStatus    = ref('');
+const pulling       = ref(false);
 
 const urlInput = ref(store.scriptUrl || '');
 
@@ -95,6 +98,32 @@ async function pushAll() {
     toast('Push failed — check your connection', 'error');
   } finally {
     pushing.value = false;
+  }
+}
+
+// Manual "pull latest data" — for when data was loaded or edited directly in
+// the Sheet (e.g. bulk-entering real IMEIs into the Units tab for an initial
+// stocktake, or correcting Master List prices) and you don't want to wait for
+// the next login's automatic pull. Guarded the same way the automatic pull
+// is: skipped while the offline queue is non-empty, so a manual pull can't
+// clobber local edits that haven't reached Sheets yet.
+async function pullAll() {
+  if (!store.scriptUrl) { toast('Connect Google Sheets first', 'error'); return; }
+  if (store.syncQueue.length) {
+    pullStatus.value = 'You have unsynced local changes — Sync Now (top banner) first, then pull.';
+    return;
+  }
+  pulling.value = true;
+  pullStatus.value = 'Pulling master list, inventory, and settings…';
+  try {
+    await pullFromSheets();
+    pullStatus.value = 'Pulling IMEI units…';
+    await pullUnits();
+    pullStatus.value = 'Done! Latest data loaded — any local placeholder ("DUMMY-...") units are replaced automatically once real units cover the stock.';
+  } catch (err) {
+    pullStatus.value = 'Pull failed — check your connection.';
+  } finally {
+    pulling.value = false;
   }
 }
 
@@ -798,6 +827,23 @@ async function copyScript() {
           {{ pushing ? 'Pushing…' : 'Push All Data' }}
         </button>
         <span v-if="pushStatus" style="font-size:13px;color:var(--muted);">{{ pushStatus }}</span>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="card" style="margin-top:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">5</div>
+        <h3 style="font-size:15px;font-weight:700;margin:0;">Pull Latest Data</h3>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.7;">
+        If you loaded or edited data directly in the Google Sheet — e.g. bulk-entering real IMEIs into the <strong>Units</strong> tab for an initial stocktake, or correcting <strong>Master List</strong> prices — pull it into this device now instead of waiting for the next login. A real IMEI unit automatically replaces any local placeholder ("DUMMY-…") unit for the same product once real units cover its stock count.
+      </p>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <button class="btn btn-outline" :disabled="pulling || !store.scriptUrl" @click="pullAll">
+          {{ pulling ? 'Pulling…' : 'Pull Latest Data' }}
+        </button>
+        <span v-if="pullStatus" style="font-size:13px;color:var(--muted);">{{ pullStatus }}</span>
       </div>
     </div>
   </div>
