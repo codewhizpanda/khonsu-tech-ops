@@ -80,7 +80,7 @@ Persistence keys are prefixed `kt_*` (e.g. `kt_ml`, `kt_inv`, `kt_units`, `kt_qu
 ## Business Logic Essentials
 
 - **Sales flow**: Picker → Detail (variant/color/IMEI, sold type, payment, add-on) → Review → Confirm → Report. Four sub-screens toggled by a local ref inside `SalesPage.vue`, not by routing.
-- **Pricing**: Walk-in pays SRP; Pasa pays SRP + pasa markup; Promotions pay a fixed bundle price. `netSales = (soldPrice − unitPrice) × qty`.
+- **Pricing**: Walk-in pays SRP; Pasa pays SRP + pasa markup; Promotions pay a fixed bundle price. `netSales = (netBase − unitPrice) × qty` where `netBase` is SRP (Walk-in/Pasa) or `bundlePrice` (Promotions) — **the Pasa markup is never counted as net sales**, since it's the promoter's commission passing through, not ITEL's revenue. It's still tracked as its own `pasaPrice` field.
 - **Pasa cap**: `settings.pasaCapEnabled` (default `true`, toggle in Settings → General) caps the per-unit Pasa markup at the item's own net sales amount (`SRP − unitPrice`), so a promoter's commission can't exceed what ITEL earns on the sale. Enforced in `SaleForm.vue` (UI clamp) and again in `useSales.js buildPendingItem()` (defense in depth).
 - **IMEI tracking**: Smart Phone / Bar Phone / Tablet categories are unit-tracked (`units` array, one row per physical unit with a real or dummy IMEI); accessories remain quantity-based.
 - **Numbering**: SO `SO-YYMMDD-XXXX`, bundle `BDL-YYMMDD-XXX`, promo `PRO-YYMMDD-XXX`, PO `PO-{6 digits of Date.now()}`. Counters are per-device (`localStorage`), not cross-device coordinated.

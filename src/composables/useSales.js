@@ -88,6 +88,10 @@ export function useSales() {
       cappedPasa = Math.min(cappedPasa, Math.max(0, srp - p.unitPrice));
     }
     const sp = isPromo ? bundlePrice : (soldType === 'Pasa' ? srp + cappedPasa : srp);
+    // Net sales is ITEL's own margin, not what the customer paid. The Pasa markup
+    // is the promoter's commission passing through the till — we track it
+    // (pasaPrice) but it was never ours, so it must not inflate net sales.
+    const netBase = isPromo ? bundlePrice : srp;
     const freebieKey = store.productFreebies[ik(p)];
     const freebieP = freebieKey ? store.masterList.find(x => ik(x) === freebieKey) : null;
 
@@ -108,7 +112,7 @@ export function useSales() {
       srp,
       sp,
       unitPrice: p.unitPrice,
-      net: (sp - p.unitPrice) * resolvedQty,
+      net: (netBase - p.unitPrice) * resolvedQty,
       addon: store.selectedAddon ? { ...store.selectedAddon } : null,
       freebie: freebieP ? { name: freebieP.name, key: freebieKey } : null,
       promoAddon: promoAddonKey ? { key: promoAddonKey, name: promoAddonName } : null,
@@ -173,7 +177,7 @@ export function useSales() {
         itemName: p.name, variant: vl(p), color: item.color,
         qty: item.qty, unitPrice: item.unitPrice, srp: item.srp,
         soldPrice: item.sp, pasaPrice: item.pasa || 0, discount: 0,
-        netSales: (item.sp - item.unitPrice) * item.qty,
+        netSales: item.net,
         payment: item.payment, soldType: item.soldType,
         promoter: item.promoter, staff: store.currentUser,
         productKey: ik(p), isPromotion: item.isPromo || false,

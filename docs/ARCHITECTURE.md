@@ -598,12 +598,13 @@ Full delete-and-reinsert overwrite on every save — from either "Push All Data"
 | Sold Type | Customer Pays | Net Sales Formula |
 |---|---|---|
 | Walk-in | SRP | `(SRP − unitPrice) × qty` |
-| Pasa (promoter/referral) | SRP + pasaPrice | `(SRP + pasa − unitPrice) × qty` |
+| Pasa (promoter/referral) | SRP + pasaPrice | `(SRP − unitPrice) × qty` — pasaPrice excluded, see below |
 | Promotion/Bundle | Fixed bundle price | `(bundlePrice − unitPrice) × qty` |
 
 - Add-on net: `addonSoldPrice − addonUnitPrice`
 - Promo-included accessory ("promoAddon"): `−(unitPrice × qty)` — cost with no revenue (given away as part of the bundle)
 - Freebie items decrement stock but generate no sale row / no revenue or cost line at all
+- **Pasa markup is excluded from net sales.** The customer pays `SRP + pasaPrice` (`soldPrice`, tracked in the Sales Log's `Sold Price` column) and that full amount is what's collected at the till, but the `pasaPrice` portion is the promoter's commission passing through — it was never ITEL's revenue. `useSales.js buildPendingItem()` computes `net` from a `netBase` (SRP for Walk-in/Pasa, `bundlePrice` for promotions) that always excludes the Pasa markup; `confirmSale()` copies that precomputed `item.net` onto the sale row's `netSales` rather than re-deriving it from `soldPrice`, so the two never drift apart. `pasaPrice` remains its own tracked column/field for promoter commission reporting — it's recorded, just not counted as ITEL's earnings.
 
 **Pasa amount cap** (`settings.pasaCapEnabled`, default `true`, toggle in Settings → General): when on, the per-unit Pasa markup a staff member can enter is capped at that item's own net sales amount, `max(0, SRP − unitPrice)` — so a promoter's commission can never exceed what ITEL earns selling the item at plain SRP. Enforced twice: in `SaleForm.vue` (clamps on blur, shows the max and a "capped" notice) and again in `useSales.js buildPendingItem()` (defense in depth — reclamps regardless of what the form passed, e.g. an item added before the cap was toggled on and then re-edited). Because the cap is per-unit and both the cap and the pasa markup scale linearly with `qty`, capping per-unit is equivalent to capping the line's total Pasa payout. Turning the setting off removes the cap entirely (any Pasa amount is accepted, matching pre-cap behavior).
 
