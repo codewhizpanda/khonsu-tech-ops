@@ -2,7 +2,7 @@ import { ref } from 'vue';
 import { useAppStore } from '@/stores/state.js';
 import { useToast } from '@/composables/useToast.js';
 import { useErrorLog } from '@/composables/useErrorLog.js';
-import { sameDay } from '@/utils.js';
+import { sameDay, ik } from '@/utils.js';
 
 const QUEUE_KEY = 'kt_queue';
 
@@ -232,6 +232,72 @@ export async function restoreTodaySales() {
     const today = json.sales.filter(r => sameDay(r.Date));
     if (today.length) store.saleRows = today.map(sheetRowToSaleRow);
   } catch { /* non-critical */ }
+}
+
+// IMEI unit records were previously only ever pushed (saveUnits/updateUnitStatus)
+// and never pulled — a device that never personally received the stock (e.g. a
+// second staff phone, or any fresh/private-window session) had no way to learn
+// the *real* IMEIs another device already recorded receiving. Its local
+// dummy-IMEI backfill (initApp()) would silently invent a placeholder
+// 'DUMMY-...' unit to match the stock count instead, which then could never
+// match a real barcode scan.
+export async function pullUnits() {
+  const store = useAppStore();
+  if (!store.scriptUrl || store.syncQueue.length) return;
+  try {
+    const res  = await fetch(store.scriptUrl + '?action=getUnits');
+    const json = await res.json();
+    if (json.error || !json.units) return;
+
+    const byImei = new Map(store.units.map(u => [u.imei, u]));
+    json.units.forEach(r => {
+      const imei = String(r.IMEI || '');
+      if (!imei) return;
+      byImei.set(imei, {
+        imei,
+        productKey:   String(r.ProductKey || ''),
+        productName:  String(r.ProductName || ''),
+        color:        String(r.Color || ''),
+        status:       String(r.Status || 'available'),
+        drNumber:     String(r.DRNumber || ''),
+        receivedDate: String(r.ReceivedDate || ''),
+        soNumber:     r.SONumber ? String(r.SONumber) : null,
+        soldDate:     r.SoldDate ? String(r.SoldDate) : null,
+        isDummy:      String(r.IsDummy || 'false') === 'true',
+      });
+    });
+
+    store.units = reconcileDummyUnits(Array.from(byImei.values()), store);
+    localStorage.setItem('kt_units', JSON.stringify(store.units));
+  } catch (e) {
+    useErrorLog().logSyncIssue({ action: 'getUnits', message: e.message });
+  }
+}
+
+// A real, synced unit makes a local dummy placeholder for that same product
+// redundant once real records cover the full stock count — drop just the
+// excess so a device never shows both a scannable real IMEI and a fake one
+// for what's actually a single physical unit still sitting in the Sheet.
+function reconcileDummyUnits(units, store) {
+  const byKey = {};
+  units.forEach(u => {
+    if (!byKey[u.productKey]) byKey[u.productKey] = [];
+    byKey[u.productKey].push(u);
+  });
+
+  const drop = new Set();
+  store.masterList.forEach(p => {
+    const key = ik(p);
+    const list = byKey[key];
+    if (!list) return;
+    const stock          = (store.inventory[key] || {}).stock || 0;
+    const realAvailable  = list.filter(u => u.status === 'available' && !u.isDummy).length;
+    const dummyAvailable = list.filter(u => u.status === 'available' && u.isDummy);
+    const dummySlotsNeeded = Math.max(0, stock - realAvailable);
+    dummyAvailable.slice(dummySlotsNeeded).forEach(u => drop.add(u.imei));
+  });
+
+  return units.filter(u => !drop.has(u.imei));
 }
 
 window.addEventListener('online', () => {

@@ -145,6 +145,7 @@ function doGet(e) {
   if (e.parameter.action === 'getPaymentLogs')   return getPaymentLogs();
   if (e.parameter.action === 'getAllData')       return getAllData();
   if (e.parameter.action === 'getIssueLogs')     return getIssueLogs();
+  if (e.parameter.action === 'getUnits')         return getUnits();
   return respond({ status: 'Khonsu Tech OPS running' });
 }
 
@@ -407,6 +408,28 @@ function updateUnitStatus(d) {
     }
   }
   return respond({ status: 'Unit status updated' });
+}
+
+function getUnits() {
+  const sh = SS.getSheetByName('Units');
+  if (!sh) return respond({ units: [] });
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return respond({ units: [] });
+  const units = data.slice(1).filter(r => r[0]).map(function(r) {
+    return {
+      IMEI: String(r[0] || ''),
+      ProductKey: String(r[1] || ''),
+      ProductName: String(r[2] || ''),
+      Color: String(r[3] || ''),
+      Status: String(r[4] || 'available'),
+      DRNumber: String(r[5] || ''),
+      ReceivedDate: String(r[6] || ''),
+      SONumber: String(r[7] || ''),
+      SoldDate: String(r[8] || ''),
+      IsDummy: String(r[9] || 'false'),
+    };
+  });
+  return respond({ units: units });
 }
 
 function getSettingsSheet() {

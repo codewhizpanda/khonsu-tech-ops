@@ -2,7 +2,7 @@
 import { computed, onMounted } from 'vue';
 import { RouterView } from 'vue-router';
 import { useAppStore } from '@/stores/state.js';
-import { pullFromSheets, restoreTodaySales, getQueue } from '@/composables/useSync.js';
+import { pullFromSheets, restoreTodaySales, pullUnits, getQueue } from '@/composables/useSync.js';
 import SvgSprite   from '@/components/SvgSprite.vue';
 import LockScreen  from '@/components/LockScreen.vue';
 import NavBar      from '@/components/NavBar.vue';
@@ -20,7 +20,10 @@ onMounted(async () => {
   if (store.currentUser && store.scriptUrl) {
     restoreTodaySales().catch(() => {});
     setTimeout(() => {
-      if (!getQueue().length) pullFromSheets().catch(() => {});
+      if (!getQueue().length) {
+        pullFromSheets().catch(() => {});
+        pullUnits().catch(() => {});
+      }
     }, 800);
   }
 });
