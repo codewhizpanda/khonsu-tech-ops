@@ -38,6 +38,24 @@ const filteredLogs = computed(() => {
   });
 });
 
+// Pagination — this log only grows over time, so a plain table + page size
+// keeps the DOM small instead of rendering every entry ever logged.
+const pageSizeOptions = [10, 25, 50, 100];
+const pageSize    = ref(10);
+const currentPage = ref(1);
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredLogs.value.length / pageSize.value)));
+
+const paginatedLogs = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredLogs.value.slice(start, start + pageSize.value);
+});
+
+// Any change to what's being shown should snap back to page 1, otherwise a
+// user can land on an empty page (e.g. viewing page 4 of "All", then
+// filtering down to a shorter list that only has 1 page).
+watch([searchQ, filterStore, filterStatus, pageSize], () => { currentPage.value = 1; });
+
 const totals = computed(() => {
   const pending  = store.paymentLogs.filter(l => l.status === 'pending');
   const credited = store.paymentLogs.filter(l => l.status === 'credited');
@@ -190,8 +208,10 @@ function submitEdit() {
         <input v-model="searchQ" type="text" placeholder="Search reference, method, staff…" />
       </div>
       <button @click="filterOpen = true"
-        :style="(filterStore !== 'All' || filterStatus !== 'All') ? 'background:var(--accent);border-color:var(--accent);color:#fff;' : 'color:var(--text);'"
-        style="flex-shrink:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;"
+        :style="[
+          'flex-shrink:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;',
+          (filterStore !== 'All' || filterStatus !== 'All') ? 'background:var(--accent);border-color:var(--accent);color:#fff;' : 'color:var(--text);',
+        ]"
         title="Filter">
         <svg class="ic" aria-hidden="true"><use href="#ic-filter"/></svg>
       </button>
@@ -236,66 +256,101 @@ function submitEdit() {
       {{ store.paymentLogs.length ? 'No results match your filter.' : 'No payment logs yet.' }}
     </div>
 
-    <div v-for="log in filteredLogs" :key="log.id" class="card" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-            <span
-              style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;"
-              :style="log.store === 'ITEL' ? 'background:var(--accent-light);color:var(--accent);' : 'background:#f3e8ff;color:#7e22ce;'"
-            >{{ log.store }}</span>
-            <span style="font-size:13px;font-weight:700;">{{ log.method }}</span>
-            <span v-if="log.origin === 'auto'" style="font-size:11px;color:var(--muted);">(auto-logged)</span>
-          </div>
-          <div style="font-size:20px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--text);margin-bottom:6px;">{{ fmt(log.amount) }}</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.8;">
-            <strong style="color:var(--text);">Date:</strong> {{ fmtDate(log.date) }}<br>
-            <strong style="color:var(--text);">Reference:</strong> {{ log.reference || '—' }}<br>
-            <strong style="color:var(--text);">Logged by:</strong> {{ log.staff }}
-            <template v-if="log.notes"><br><strong style="color:var(--text);">Notes:</strong> {{ log.notes }}</template>
-            <template v-if="log.status === 'credited' || log.status === 'settled'"><br><strong style="color:var(--text);">Credited:</strong> {{ fmtDate(log.creditedDate) }} by {{ log.creditedBy }}</template>
-            <template v-if="log.status === 'settled'"><br><strong style="color:var(--text);">Settled to Bisen:</strong> {{ fmtDate(log.settledDate) }} by {{ log.settledBy }}</template>
-          </div>
-        </div>
-        <span
-          :style="{
-            background: log.status === 'settled' ? '#dcfce7' : log.status === 'credited' ? '#dbeafe' : '#fef3c7',
-            color: log.status === 'settled' ? '#16a34a' : log.status === 'credited' ? '#2563eb' : '#d97706',
-          }"
-          style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;"
-        >
-          <svg v-if="log.status === 'settled' || log.status === 'credited'" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-check"/></svg>
-          <svg v-else style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-clock"/></svg>
-          {{ log.status === 'settled' ? 'Settled' : log.status === 'credited' ? 'Credited' : 'Pending' }}
-        </span>
+    <div v-else style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px;">
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="background:var(--accent);color:#fff;">
+              <th style="padding:10px 12px;text-align:left;white-space:nowrap;">Date</th>
+              <th style="padding:10px 12px;text-align:left;white-space:nowrap;">Store / Method</th>
+              <th style="padding:10px 12px;text-align:right;white-space:nowrap;">Amount</th>
+              <th style="padding:10px 12px;text-align:left;white-space:nowrap;">Reference</th>
+              <th style="padding:10px 12px;text-align:left;white-space:nowrap;">Staff</th>
+              <th style="padding:10px 12px;text-align:left;white-space:nowrap;">Status</th>
+              <th style="padding:10px 12px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="log in paginatedLogs" :key="log.id" style="border-bottom:1px solid var(--border);">
+              <td style="padding:9px 12px;white-space:nowrap;color:var(--muted);">{{ fmtDate(log.date) }}</td>
+              <td style="padding:9px 12px;white-space:nowrap;">
+                <span
+                  style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-right:6px;"
+                  :style="log.store === 'ITEL' ? 'background:var(--accent-light);color:var(--accent);' : 'background:#f3e8ff;color:#7e22ce;'"
+                >{{ log.store }}</span>
+                <span style="font-weight:600;">{{ log.method }}</span>
+                <span v-if="log.origin === 'auto'" style="font-size:11px;color:var(--muted);"> (auto)</span>
+              </td>
+              <td style="padding:9px 12px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;">{{ fmt(log.amount) }}</td>
+              <td style="padding:9px 12px;">
+                {{ log.reference || '—' }}
+                <div v-if="log.notes" style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;">{{ log.notes }}</div>
+              </td>
+              <td style="padding:9px 12px;white-space:nowrap;">{{ log.staff }}</td>
+              <td style="padding:9px 12px;white-space:nowrap;">
+                <span
+                  :style="{
+                    background: log.status === 'settled' ? '#dcfce7' : log.status === 'credited' ? '#dbeafe' : '#fef3c7',
+                    color: log.status === 'settled' ? '#16a34a' : log.status === 'credited' ? '#2563eb' : '#d97706',
+                  }"
+                  style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;"
+                  :title="log.status === 'settled'
+                    ? 'Credited ' + fmtDate(log.creditedDate) + ' by ' + log.creditedBy + ' · Settled to Bisen ' + fmtDate(log.settledDate) + ' by ' + log.settledBy
+                    : log.status === 'credited' ? 'Credited ' + fmtDate(log.creditedDate) + ' by ' + log.creditedBy : ''"
+                >
+                  <svg v-if="log.status === 'settled' || log.status === 'credited'" style="width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-check"/></svg>
+                  <svg v-else style="width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-clock"/></svg>
+                  {{ log.status === 'settled' ? 'Settled' : log.status === 'credited' ? 'Credited' : 'Pending' }}
+                </span>
+              </td>
+              <!-- Actions: Edit/Delete only on manually-created entries, available to all staff; credited/settle toggles are Admin-only -->
+              <td style="padding:9px 12px;">
+                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                  <template v-if="log.origin === 'manual'">
+                    <button class="btn btn-outline btn-sm" style="padding:5px 9px;" @click="openEdit(log)" title="Edit">
+                      <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-edit"/></svg>
+                    </button>
+                    <button class="btn btn-outline btn-sm" style="padding:5px 9px;color:var(--red);border-color:var(--red);" @click="confirmRemove(log)" title="Delete">
+                      <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-trash"/></svg>
+                    </button>
+                  </template>
+                  <template v-if="isAdmin">
+                    <template v-if="log.store === 'Bisen'">
+                      <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Credit</button>
+                      <template v-else-if="log.status === 'credited'">
+                        <button class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert</button>
+                        <button class="btn btn-success btn-sm" @click="settlePayment(log.id)">✓ Settle</button>
+                      </template>
+                      <button v-else class="btn btn-outline btn-sm" @click="revertToCredited(log.id)">Revert</button>
+                    </template>
+                    <template v-else>
+                      <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Credit</button>
+                      <button v-else class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert</button>
+                    </template>
+                  </template>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <!-- Actions: Edit/Delete only on manually-created entries, available to all staff; credited/settle toggles are Admin-only -->
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;">
-        <template v-if="log.origin === 'manual'">
-          <button class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:4px;" @click="openEdit(log)">
-            <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-edit"/></svg>
-            Edit
-          </button>
-          <button class="btn btn-outline btn-sm" style="color:var(--red);border-color:var(--red);display:inline-flex;align-items:center;gap:4px;" @click="confirmRemove(log)">
-            <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-trash"/></svg>
-            Delete
-          </button>
-        </template>
-        <template v-if="isAdmin">
-          <template v-if="log.store === 'Bisen'">
-            <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Mark as Credited</button>
-            <template v-else-if="log.status === 'credited'">
-              <button class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert to Pending</button>
-              <button class="btn btn-success btn-sm" @click="settlePayment(log.id)">✓ Settle Payment to Bisen</button>
-            </template>
-            <button v-else class="btn btn-outline btn-sm" @click="revertToCredited(log.id)">Revert to Credited</button>
-          </template>
-          <template v-else>
-            <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Mark as Credited</button>
-            <button v-else class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert to Pending</button>
-          </template>
-        </template>
+      <!-- Pagination -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);">
+          <span>Rows per page:</span>
+          <select v-model.number="pageSize" style="padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;">
+            <option v-for="n in pageSizeOptions" :key="n" :value="n">{{ n }}</option>
+          </select>
+        </div>
+        <div style="font-size:12px;color:var(--muted);">
+          {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, filteredLogs.length) }} of {{ filteredLogs.length }}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button class="btn btn-outline btn-sm" :disabled="currentPage <= 1" @click="currentPage--">Prev</button>
+          <span style="font-size:12px;color:var(--text);white-space:nowrap;">Page {{ currentPage }} of {{ totalPages }}</span>
+          <button class="btn btn-outline btn-sm" :disabled="currentPage >= totalPages" @click="currentPage++">Next</button>
+        </div>
       </div>
     </div>
 

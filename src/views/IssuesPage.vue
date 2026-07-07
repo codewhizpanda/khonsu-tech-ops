@@ -90,8 +90,10 @@ function fmtDate(iso) {
         <input v-model="searchQ" type="text" placeholder="Search message, action, context…" />
       </div>
       <button @click="filterOpen = true"
-        :style="(filterType !== 'All' || filterStatus !== 'All') ? 'background:var(--accent);border-color:var(--accent);color:#fff;' : 'color:var(--text);'"
-        style="flex-shrink:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;"
+        :style="[
+          'flex-shrink:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;',
+          (filterType !== 'All' || filterStatus !== 'All') ? 'background:var(--accent);border-color:var(--accent);color:#fff;' : 'color:var(--text);',
+        ]"
         title="Filter">
         <svg class="ic" aria-hidden="true"><use href="#ic-filter"/></svg>
       </button>
