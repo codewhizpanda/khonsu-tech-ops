@@ -88,6 +88,33 @@ function fmtDate(iso) {
   return d.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+// Status options available in the row dropdown: ITEL only ever needs
+// pending/credited; Bisen adds the settled step. The dropdown can set any of
+// these directly (each branch below reuses the same guarded composable
+// functions the old per-transition buttons called), so an invalid jump (e.g.
+// straight to Settled from Pending) is still rejected by settlePayment()'s
+// own check — the <select> will simply snap back to the real status on the
+// next render since it's bound via :value, not v-model.
+function statusOptionsFor(log) {
+  return log.store === 'Bisen' ? ['pending', 'credited', 'settled'] : ['pending', 'credited'];
+}
+
+function onStatusChange(log, target) {
+  if (!target || target === log.status) return;
+  if (target === 'pending') revertPending(log.id);
+  else if (target === 'credited') {
+    if (log.status === 'pending') markCredited(log.id);
+    else if (log.status === 'settled') revertToCredited(log.id);
+  } else if (target === 'settled') settlePayment(log.id);
+}
+
+// One-click "undo" for the common case — steps back exactly one stage
+// (settled -> credited, credited -> pending) without opening the dropdown.
+function revertOneStep(log) {
+  if (log.status === 'settled') revertToCredited(log.id);
+  else if (log.status === 'credited') revertPending(log.id);
+}
+
 // Add Bisen Maya terminal entry
 const addModal  = ref(false);
 const newMethod = ref(BISEN_METHODS[0]);
@@ -208,10 +235,7 @@ function submitEdit() {
         <input v-model="searchQ" type="text" placeholder="Search reference, method, staff…" />
       </div>
       <button @click="filterOpen = true"
-        :style="[
-          'flex-shrink:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;',
-          (filterStore !== 'All' || filterStatus !== 'All') ? 'background:var(--accent);border-color:var(--accent);color:#fff;' : 'color:var(--text);',
-        ]"
+        style="flex-shrink:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;color:var(--text);"
         title="Filter">
         <svg class="ic" aria-hidden="true"><use href="#ic-filter"/></svg>
       </button>
@@ -288,7 +312,24 @@ function submitEdit() {
               </td>
               <td style="padding:9px 12px;white-space:nowrap;">{{ log.staff }}</td>
               <td style="padding:9px 12px;white-space:nowrap;">
+                <!-- Admin: status is a plain editable dropdown. Everyone else: read-only badge. -->
+                <select
+                  v-if="isAdmin"
+                  :value="log.status"
+                  @change="onStatusChange(log, $event.target.value)"
+                  :title="log.status === 'settled'
+                    ? 'Credited ' + fmtDate(log.creditedDate) + ' by ' + log.creditedBy + ' · Settled to Bisen ' + fmtDate(log.settledDate) + ' by ' + log.settledBy
+                    : log.status === 'credited' ? 'Credited ' + fmtDate(log.creditedDate) + ' by ' + log.creditedBy : ''"
+                  :style="{
+                    background: log.status === 'settled' ? '#dcfce7' : log.status === 'credited' ? '#dbeafe' : '#fef3c7',
+                    color: log.status === 'settled' ? '#16a34a' : log.status === 'credited' ? '#2563eb' : '#d97706',
+                  }"
+                  style="border:none;border-radius:20px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;"
+                >
+                  <option v-for="s in statusOptionsFor(log)" :key="s" :value="s">{{ s.charAt(0).toUpperCase() + s.slice(1) }}</option>
+                </select>
                 <span
+                  v-else
                   :style="{
                     background: log.status === 'settled' ? '#dcfce7' : log.status === 'credited' ? '#dbeafe' : '#fef3c7',
                     color: log.status === 'settled' ? '#16a34a' : log.status === 'credited' ? '#2563eb' : '#d97706',
@@ -303,7 +344,7 @@ function submitEdit() {
                   {{ log.status === 'settled' ? 'Settled' : log.status === 'credited' ? 'Credited' : 'Pending' }}
                 </span>
               </td>
-              <!-- Actions: Edit/Delete only on manually-created entries, available to all staff; credited/settle toggles are Admin-only -->
+              <!-- Actions: Edit/Delete only on manually-created entries, available to all staff; Revert (Admin-only) undoes one status stage -->
               <td style="padding:9px 12px;">
                 <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
                   <template v-if="log.origin === 'manual'">
@@ -314,20 +355,9 @@ function submitEdit() {
                       <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-trash"/></svg>
                     </button>
                   </template>
-                  <template v-if="isAdmin">
-                    <template v-if="log.store === 'Bisen'">
-                      <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Credit</button>
-                      <template v-else-if="log.status === 'credited'">
-                        <button class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert</button>
-                        <button class="btn btn-success btn-sm" @click="settlePayment(log.id)">✓ Settle</button>
-                      </template>
-                      <button v-else class="btn btn-outline btn-sm" @click="revertToCredited(log.id)">Revert</button>
-                    </template>
-                    <template v-else>
-                      <button v-if="log.status === 'pending'" class="btn btn-success btn-sm" @click="markCredited(log.id)">✓ Credit</button>
-                      <button v-else class="btn btn-outline btn-sm" @click="revertPending(log.id)">Revert</button>
-                    </template>
-                  </template>
+                  <button v-if="isAdmin && log.status !== 'pending'" class="btn btn-outline btn-sm" style="padding:5px 9px;" @click="revertOneStep(log)" title="Revert to previous status">
+                    <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-arrow-left"/></svg>
+                  </button>
                 </div>
               </td>
             </tr>
