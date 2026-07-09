@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/state.js';
 import { ik, vl } from '@/utils.js';
 import { useToast } from '@/composables/useToast.js';
-import { tryPush } from '@/composables/useSync.js';
+import { tryPush, pullFromSheets } from '@/composables/useSync.js';
 import SetupPage from '@/views/SetupPage.vue';
 
 const store  = useAppStore();
@@ -15,10 +15,104 @@ const { toast } = useToast();
 // Setup (Google Sheets sync) was merged in as a tab here, since it's the same
 // "admin configures how the app behaves" concern as the settings below —
 // one less item in the nav for something staff never touch anyway.
-const activeTab = ref(route.query.tab === 'sync' ? 'sync' : 'general');
+const validTabs = ['general', 'sync', 'viber'];
+const activeTab = ref(validTabs.includes(route.query.tab) ? route.query.tab : 'general');
 function selectTab(tab) {
   activeTab.value = tab;
-  router.replace({ path: '/settings', query: tab === 'sync' ? { tab: 'sync' } : {} });
+  router.replace({ path: '/settings', query: tab === 'general' ? {} : { tab } });
+}
+
+// Viber supplier updates: an LLM chat session can't reach script.google.com
+// directly (outbound domain restrictions in that kind of sandboxed tool
+// environment), but this page — running as a normal browser page, same as
+// the rest of the app — can. So the round trip is: fetch+copy the live list
+// here, paste it plus the Viber message into the chat, paste its merged
+// answer back here, push. See docs/ARCHITECTURE.md §10.7 for the endpoint.
+const viberFetchedJson  = ref('');
+const viberFetchStatus  = ref('');
+const viberFetchOk      = ref(false);
+const viberFetching     = ref(false);
+const viberPushJson     = ref('');
+const viberPushStatus   = ref('');
+const viberPushOk       = ref(false);
+const viberPushing      = ref(false);
+
+async function fetchCurrentMasterList() {
+  if (!store.scriptUrl) { toast('Connect Google Sheets first (Sync tab)', 'error'); return; }
+  viberFetching.value = true;
+  viberFetchStatus.value = 'Fetching current Master List…';
+  try {
+    const res  = await fetch(store.scriptUrl + '?action=getMasterList');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const rows = (data.rows || []).map(r => ({
+      key:       r.key || '',
+      category:  r.category || '',
+      model:     r.model || '',
+      ram:       r.ram || '',
+      storage:   r.storage || '',
+      colors:    r.colors || '',
+      unitPrice: Number(r['unit price']) || 0,
+      srp:       Number(r.srp) || 0,
+      status:    r.status || 'Active',
+    }));
+    viberFetchedJson.value = JSON.stringify(rows, null, 2);
+    viberFetchOk.value = true;
+    viberFetchStatus.value = `Fetched ${rows.length} item(s) — copy below and paste into your Claude chat along with the Viber update.`;
+  } catch (err) {
+    viberFetchOk.value = false;
+    viberFetchStatus.value = 'Fetch failed: ' + (err.message || 'could not reach the script URL.');
+  } finally {
+    viberFetching.value = false;
+  }
+}
+
+async function copyFetchedMasterList() {
+  try {
+    await navigator.clipboard.writeText(viberFetchedJson.value);
+    toast('Copied to clipboard!', 'success');
+  } catch {
+    toast('Could not copy automatically — select the text and copy manually.', 'error');
+  }
+}
+
+async function pushViberUpdate() {
+  if (!store.scriptUrl) { toast('Connect Google Sheets first (Sync tab)', 'error'); return; }
+  let rows;
+  try {
+    rows = JSON.parse(viberPushJson.value);
+    if (!Array.isArray(rows)) throw new Error('Expected a JSON array of items.');
+  } catch (err) {
+    viberPushOk.value = false;
+    viberPushStatus.value = 'Could not parse JSON: ' + err.message;
+    return;
+  }
+  if (!confirm(`This replaces the entire Master List with ${rows.length} item(s). Continue?`)) return;
+
+  viberPushing.value = true;
+  viberPushStatus.value = 'Pushing to Google Sheets…';
+  try {
+    const res = await fetch(store.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'updateMasterList', rows }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    viberPushStatus.value = `Pushed ${data.count} item(s). Pulling latest into this device…`;
+    await pullFromSheets();
+    viberPushOk.value = true;
+    viberPushStatus.value = `Done! Master List updated (${data.count} item(s)) and synced to this device.`;
+    toast('Master List updated from Viber data!', 'success');
+    viberPushJson.value = '';
+    viberFetchedJson.value = '';
+  } catch (err) {
+    viberPushOk.value = false;
+    viberPushStatus.value = 'Push failed: ' + (err.message || 'could not reach the script URL.');
+    toast('Push failed — check your connection', 'error');
+  } finally {
+    viberPushing.value = false;
+  }
 }
 
 // Local settings form (don't mutate store directly until save)
@@ -134,6 +228,14 @@ async function changePin() {
         <svg class="ic" aria-hidden="true"><use href="#ic-zap"/></svg>
         Google Sheets Sync
       </button>
+      <button
+        class="tab" :class="{ active: activeTab === 'viber' }"
+        style="border-radius:8px 8px 0 0;"
+        @click="selectTab('viber')"
+      >
+        <svg class="ic" aria-hidden="true"><use href="#ic-phone"/></svg>
+        Viber Update
+      </button>
     </div>
 
     <template v-if="activeTab === 'general'">
@@ -231,6 +333,50 @@ async function changePin() {
       </div>
     </template>
 
-    <SetupPage v-else />
+    <template v-else-if="activeTab === 'viber'">
+      <div class="card" style="margin-bottom:20px;">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:10px;">1. Copy Current Master List</h3>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.7;">
+          Fetch the live Master List, then paste it into your Claude chat along with the new supplier Viber message so it
+          can merge in price/stock changes against the real current catalog — never let it guess from memory.
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <button class="btn btn-outline btn-sm" @click="fetchCurrentMasterList" :disabled="viberFetching">
+            {{ viberFetching ? 'Fetching…' : 'Fetch Current List' }}
+          </button>
+          <button v-if="viberFetchedJson" class="btn btn-outline btn-sm" @click="copyFetchedMasterList">
+            <svg class="ic" aria-hidden="true"><use href="#ic-clipboard"/></svg>
+            Copy to Clipboard
+          </button>
+        </div>
+        <p v-if="viberFetchStatus" :style="{ color: viberFetchOk ? 'var(--green)' : 'var(--red)', fontSize: '13px', margin: '0 0 10px' }">{{ viberFetchStatus }}</p>
+        <textarea
+          v-if="viberFetchedJson"
+          v-model="viberFetchedJson"
+          readonly rows="8"
+          style="width:100%;font-family:monospace;font-size:11px;padding:10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);box-sizing:border-box;"
+        ></textarea>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:10px;">2. Push Updated Master List</h3>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.7;">
+          Paste the <strong>complete</strong> updated item list your Claude chat gives you back — this replaces the whole
+          Master List tab, so a partial list would delete anything left out. Then push it to Google Sheets.
+        </p>
+        <textarea
+          v-model="viberPushJson"
+          rows="8"
+          placeholder='[{"key":"...","category":"...","model":"...","ram":"","storage":"","colors":"...","unitPrice":0,"srp":0,"status":"Active"}, ...]'
+          style="width:100%;font-family:monospace;font-size:11px;padding:10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);box-sizing:border-box;margin-bottom:12px;"
+        ></textarea>
+        <button class="btn btn-primary" @click="pushViberUpdate" :disabled="viberPushing || !viberPushJson.trim()">
+          {{ viberPushing ? 'Pushing…' : 'Push to Sheet' }}
+        </button>
+        <p v-if="viberPushStatus" :style="{ color: viberPushOk ? 'var(--green)' : 'var(--red)', fontSize: '13px', margin: '10px 0 0' }">{{ viberPushStatus }}</p>
+      </div>
+    </template>
+
+    <SetupPage v-else-if="activeTab === 'sync'" />
   </div>
 </template>
