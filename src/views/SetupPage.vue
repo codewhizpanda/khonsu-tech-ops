@@ -144,6 +144,7 @@ function doPost(e) {
     if (d.action === 'pushInventory')       return pushInventory(d);
     if (d.action === 'pushMasterList')      return pushMasterList(d);
     if (d.action === 'saveProducts')        return pushMasterList(d);
+    if (d.action === 'updateMasterList')    return updateMasterList(d);
     if (d.action === 'saveInventory')       return updateInventoryRows(d.rows);
     if (d.action === 'updateInventoryItems')return updateInventoryRows(d.items);
     if (d.action === 'savePO')              return savePO(d);
@@ -367,6 +368,28 @@ function pushMasterList(d) {
   if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
   (d.rows || []).forEach(r => sh.appendRow(r));
   return respond({ status: 'Master List pushed', count: (d.rows || []).length });
+}
+
+// Same tab/clear-and-rewrite semantics as pushMasterList, but for an external
+// caller (e.g. an LLM turning a supplier Viber update into structured data)
+// that sends named-field objects rather than the frontend's positional row
+// arrays.
+function updateMasterList(d) {
+  let sh = SS.getSheetByName('Master List');
+  if (!sh) {
+    sh = SS.insertSheet('Master List');
+    sh.appendRow(['Key','Category','Model','RAM','Storage','Colors','Unit Price','SRP','Status']);
+    sh.getRange(1, 1, 1, 9)
+      .setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
+  }
+  const rows = (d.rows || []).map(item => [
+    item.key || '', item.category || '', item.model || '', item.ram || '',
+    item.storage || '', item.colors || '', Number(item.unitPrice) || 0,
+    Number(item.srp) || 0, item.status || '',
+  ]);
+  if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+  if (rows.length) sh.getRange(2, 1, rows.length, 9).setValues(rows);
+  return respond({ status: 'Master List updated', count: rows.length });
 }
 
 function savePO(d) {
