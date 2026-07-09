@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useAppStore } from '@/stores/state.js';
-import { ik, vl, fmt, compareProducts } from '@/utils.js';
+import { ik, vl, fmt, compareProducts, CATEGORY_ORDER } from '@/utils.js';
 import { COLORS } from '@/data.js';
 import { useToast } from '@/composables/useToast.js';
 import { tryPush } from '@/composables/useSync.js';
@@ -65,7 +65,7 @@ const niPrice   = ref('');
 const niSrp     = ref('');
 const niColors  = ref('');
 
-const CAT_OPTIONS = ['Bar Phone', 'Smart Phone', 'Tablet', 'Earbuds', 'Smart Watch', 'Power Bank', 'Others'];
+const CAT_OPTIONS = CATEGORY_ORDER;
 
 function openNewItem() {
   niCat.value = 'Smart Phone'; niName.value = ''; niRam.value = ''; niStorage.value = '';

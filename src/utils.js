@@ -40,10 +40,15 @@ export function fmtSheetDate(raw) {
 // product list/picker that should present items in this order.
 export const UNIT_CATEGORIES = new Set(['Bar Phone', 'Smart Phone', 'Tablet']);
 
+// Canonical display order for every category — also the New Item dropdown
+// order in MasterListPage.vue, so there's one definition instead of two that
+// could drift.
+export const CATEGORY_ORDER = ['Bar Phone', 'Smart Phone', 'Tablet', 'Earbuds', 'Smart Watch', 'Power Bank', 'Others'];
+
 export function compareProducts(a, b) {
-  const groupA = UNIT_CATEGORIES.has(a.category) ? 0 : 1;
-  const groupB = UNIT_CATEGORIES.has(b.category) ? 0 : 1;
-  if (groupA !== groupB) return groupA - groupB;
+  const groupA = CATEGORY_ORDER.indexOf(a.category);
+  const groupB = CATEGORY_ORDER.indexOf(b.category);
+  if (groupA !== groupB) return (groupA === -1 ? CATEGORY_ORDER.length : groupA) - (groupB === -1 ? CATEGORY_ORDER.length : groupB);
   return a.name.localeCompare(b.name);
 }
 
