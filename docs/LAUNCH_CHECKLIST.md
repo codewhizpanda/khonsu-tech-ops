@@ -85,7 +85,7 @@ The app is a PWA — it installs like a native app and works offline (queues syn
 
 - [ ] **iPhone (Safari):** open the app URL → tap the **Share** icon → **Add to Home Screen**.
 - [ ] **Android (Chrome):** open the app URL → menu (⋮) → **Install app** (or the automatic "Add to Home Screen" banner).
-- [ ] On each device: open the installed app, log in, and **Setup/Sync tab → paste the same Web App URL from Phase 1 → Connect.** (Same URL on every device — this is what makes them all see the same data.)
+- [ ] On each device: open the installed app and log in. The app now ships pre-connected to the production Web App URL (defaulted in `src/stores/state.js`), so **Setup/Sync should already show "✓ Connected"** with no manual paste needed. Only use **Setup/Sync tab → paste Web App URL → Connect** if this device needs to point at a different spreadsheet/script.
 - [ ] On first camera/barcode use per device, grant the camera permission prompt when asked (needed for both Receive Stock and Log Sale scanning).
 - [ ] Confirm each device shows the real inventory counts/prices from Phase 5, not the original seed defaults — if it still shows stale numbers, the connect step above didn't complete, or the queue needs a manual "Sync Now."
 

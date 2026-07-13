@@ -158,7 +158,7 @@ All runtime state lives in one Pinia **setup store**, `useAppStore()` (`src/stor
   selectedProduct, selectedAddon,                // active detail-screen selections
   activeCat, searchQ, addonCat,                    // ProductGrid/AddonPicker UI filters
   purchaseOrders: [],                                // PO array
-  scriptUrl: '',                                       // Google Apps Script Web App URL
+  scriptUrl: '',                                       // Google Apps Script Web App URL — defaults to the production deployment if kt_url isn't set, so new devices are sync-ready with no manual Connect step
   editingPOId,
   syncQueue: [],                                         // mirror of kt_queue for reactive SyncBanner
   units: [],                                               // IMEI unit records

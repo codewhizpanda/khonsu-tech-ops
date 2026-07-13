@@ -91,7 +91,7 @@ export const useAppStore = defineStore('app', () => {
     predefinedBundles.value = JSON.parse(localStorage.getItem('kt_bundles') || '[]');
     productFreebies.value   = JSON.parse(localStorage.getItem('kt_freebies') || '{}');
     purchaseOrders.value    = JSON.parse(localStorage.getItem('kt_pos') || '[]');
-    scriptUrl.value         = localStorage.getItem('kt_url') || '';
+    scriptUrl.value         = localStorage.getItem('kt_url') || 'https://script.google.com/macros/s/AKfycbwNmHPUAfpN8Gz2JWM-svBj8jihRq4IKtSVm8EpHfekeuKvUIWpRZ0NduX0hd_d-6Zq/exec';
 
     try { paymentLogs.value = JSON.parse(localStorage.getItem('kt_paylogs') || '[]'); } catch { paymentLogs.value = []; }
     try { errorLogs.value = JSON.parse(localStorage.getItem('kt_errlogs') || '[]'); } catch { errorLogs.value = []; }
