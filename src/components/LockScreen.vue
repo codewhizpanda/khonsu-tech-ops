@@ -24,7 +24,7 @@ async function localHash(pin) {
 function login(user) {
   store.currentUser = user;
   localStorage.setItem('kt_user', user);
-  useTimeLog().clockIn(user);
+  if (user !== 'Admin') useTimeLog().clockIn(user);
   if (store.scriptUrl) {
     restoreTodaySales().catch(() => {});
     setTimeout(() => {

@@ -15,7 +15,7 @@ async function handlePushAll() {
   pushing.value = false;
 }
 
-const USERS = ['Sam', 'Joyce', 'Admin'];
+const USERS = ['Sam', 'Joyce']; // Admin isn't time-tracked — only staff clock in/out
 
 const searchQ    = ref('');
 const filterUser = ref('All');

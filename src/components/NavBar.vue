@@ -55,7 +55,7 @@ function go(path) {
 function isActive(path) { return route.path === path; }
 
 function logout() {
-  if (store.currentUser) useTimeLog().clockOut(store.currentUser);
+  if (store.currentUser && store.currentUser !== 'Admin') useTimeLog().clockOut(store.currentUser);
   store.currentUser = null;
   localStorage.removeItem('kt_user');
   router.push('/sales');

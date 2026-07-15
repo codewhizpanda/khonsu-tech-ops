@@ -328,14 +328,14 @@ Sync-failure and runtime-error tracking, created two ways:
 `useErrorLog.js` deliberately does **not** import `tryPush`/`enqueue` from `useSync.js` — `useSync.js` imports *from* `useErrorLog.js` to log failures, so the reverse import would be circular. Instead, issue-log pushes are one-shot/best-effort (`fetch` directly, swallow failures) — the local copy is always saved regardless, and Admin's **Push All to Sheets** button on `/issues` is the manual recovery valve if a push never lands, mirroring `pushAllPaymentLogs()`.
 
 ### Time log (`timeLogs`)
-Payroll record of every staff login/logout, created two ways:
-- **`origin: 'auto'`** — `login()` (`LockScreen.vue`) fires `clockIn`; `logout()` (`NavBar.vue`) fires `clockOut` for whichever user is currently signed in, *before* `currentUser` is cleared.
+Payroll record of every **staff** (Sam/Joyce) login/logout — Admin is not time-tracked, since this is for hourly staff payroll, not the store owner. Created two ways:
+- **`origin: 'auto'`** — `login()` (`LockScreen.vue`) fires `clockIn` for Sam/Joyce only (`user !== 'Admin'`); `logout()` (`NavBar.vue`) fires `clockOut` the same way, *before* `currentUser` is cleared.
 - **`origin: 'manual'`** — Admin adds a full entry on `/time-log` for a day nobody used the app at all (e.g. a device was dead).
 
 ```js
 {
   id: 'TL-1735900000000-42',
-  user: 'Sam' | 'Joyce' | 'Admin',
+  user: 'Sam' | 'Joyce',
   clockIn,                      // ISO timestamp, client-claimed and canonical (see below)
   clockOut,                       // ISO timestamp, or null while still clocked in
   origin: 'auto' | 'manual',
@@ -431,7 +431,7 @@ The filter button (search bar) intentionally does **not** change color when a fi
 Every sync failure and uncaught runtime error surfaces here instead of only the browser console — see the `errorLogs` structure in [§6](#6-core-data-structures). Summary cards break down open issues by type (sync vs. runtime) alongside a resolved count. Search + type/status filter mirror the other log pages. Admin marks an issue **Resolved** once the underlying data has been checked/fixed in Sheets, or **Reopens** it; a nav badge shows the live open-issue count. **Push All to Sheets** force-overwrites the Issue Log sheet from local state, for the same reason Payment Logs has one — issue-log pushes are one-shot/best-effort (see [§6](#6-core-data-structures)'s note on avoiding a circular import with `useSync.js`), so a push can occasionally not land and needs a manual nudge.
 
 ### 8.11 Time Log (`/time-log`, `TimeLogPage.vue`) — Admin only
-Payroll view of every staff login/logout — see the `timeLogs` structure in [§6](#6-core-data-structures). Summary cards show total hours per staff (Sam/Joyce/Admin) for whatever's currently filtered. Filters: staff name, plus a from/to date range on `clockIn` (in addition to the usual search box). Table columns: Staff, Clock In, Clock Out (or a "Still clocked in" badge while `clockOut` is null), computed Duration, Origin, and a corrected-by/at note plus any notes shown inline. **Every** row — auto or manual — has Edit/Delete, unlike Payment Logs' auto-is-read-only rule, since the most common need here is Admin fixing a forgotten clock-out; editing stamps `correctedBy`/`correctedAt` so the fix is visible, not silent. **Add Manual Entry** covers a day nobody used the app at all. **Push All to Sheets** mirrors the same recovery-valve pattern as Payment Logs/Issues. Pulls `?action=getTimeLogs` on mount (when the offline queue is empty).
+Payroll view of every staff login/logout — see the `timeLogs` structure in [§6](#6-core-data-structures). Summary cards show total hours per staff (Sam/Joyce — Admin isn't tracked) for whatever's currently filtered. Filters: staff name, plus a from/to date range on `clockIn` (in addition to the usual search box). Table columns: Staff, Clock In, Clock Out (or a "Still clocked in" badge while `clockOut` is null), computed Duration, Origin, and a corrected-by/at note plus any notes shown inline. **Every** row — auto or manual — has Edit/Delete, unlike Payment Logs' auto-is-read-only rule, since the most common need here is Admin fixing a forgotten clock-out; editing stamps `correctedBy`/`correctedAt` so the fix is visible, not silent. **Add Manual Entry** covers a day nobody used the app at all. **Push All to Sheets** mirrors the same recovery-valve pattern as Payment Logs/Issues. Pulls `?action=getTimeLogs` on mount (when the offline queue is empty).
 
 ---
 
@@ -642,7 +642,7 @@ Full delete-and-reinsert overwrite on every save — from either "Push All Data"
 | # | Column | Type | Written by |
 |---|---|---|---|
 | A | ID | string | `clockIn`/`addTimeLog` — client-generated `TL-{timestamp}-{rand}` |
-| B | User | string | `clockIn`/`addTimeLog` — `Sam` \| `Joyce` \| `Admin` |
+| B | User | string | `clockIn`/`addTimeLog` — `Sam` \| `Joyce` (Admin isn't time-tracked) |
 | C | Clock In | ISO string | `clockIn`/`addTimeLog`/`editTimeLog` — client-claimed, canonical (see [§6](#6-core-data-structures)) |
 | D | Clock In Received At | ISO string (server `new Date()`) | `clockIn` only — audit-only, never read back by the client |
 | E | Clock Out | ISO string or `''` | `clockOut`/`addTimeLog`/`editTimeLog` — blank means still clocked in |
