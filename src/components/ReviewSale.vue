@@ -15,6 +15,17 @@ const grandTotal = computed(() =>
 const custInfo = computed(() => items.value.find(i => i.customer)?.customer || null);
 
 const confirmed = ref(false);
+
+const hasCardPayment = computed(() => items.value.some(i => i.payment === 'Card'));
+const cardRefChecked = ref(false);
+const cardRefValue   = ref('');
+const cardRefMissing = computed(() => hasCardPayment.value && cardRefChecked.value && !cardRefValue.value.trim());
+const canConfirm      = computed(() => confirmed.value && !cardRefMissing.value);
+
+function handleConfirmClick() {
+  if (!canConfirm.value) return;
+  emit('confirm', hasCardPayment.value && cardRefChecked.value ? cardRefValue.value.trim() : '');
+}
 </script>
 
 <template>
@@ -139,6 +150,23 @@ const confirmed = ref(false);
       </span>
     </label>
 
+    <!-- Card payment reference -->
+    <div v-if="hasCardPayment" style="background:var(--surface);border:1.5px solid var(--border);border-radius:10px;margin-bottom:12px;padding:14px 16px;">
+      <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+        <input type="checkbox" v-model="cardRefChecked" style="width:18px;height:18px;accent-color:var(--accent);flex-shrink:0;cursor:pointer;" />
+        <span style="font-size:13px;font-weight:600;">Record a Reference / Terminal Txn ID for the card payment</span>
+      </label>
+      <input
+        v-if="cardRefChecked"
+        v-model="cardRefValue"
+        type="text"
+        placeholder="Terminal reference number"
+        class="form-control"
+        style="margin-top:10px;"
+        :style="cardRefMissing ? 'border-color:var(--red);' : ''"
+      />
+    </div>
+
     <!-- Actions -->
     <div style="display:flex;gap:10px;margin-bottom:10px;">
       <button class="btn btn-outline btn-lg" style="flex:1;" @click="emit('add-item')">
@@ -146,9 +174,9 @@ const confirmed = ref(false);
         Add Item
       </button>
       <button class="btn btn-success btn-lg" style="flex:2;"
-        :disabled="!confirmed"
-        :style="!confirmed ? 'opacity:.45;cursor:not-allowed;' : ''"
-        @click="confirmed && emit('confirm')">
+        :disabled="!canConfirm"
+        :style="!canConfirm ? 'opacity:.45;cursor:not-allowed;' : ''"
+        @click="handleConfirmClick">
         ✓ Confirm {{ items.length }} Item{{ items.length !== 1 ? 's' : '' }}
       </button>
     </div>

@@ -271,8 +271,8 @@ For IMEI-tracked categories, `stock` is *derived*: it always equals `count(units
 
 ### Payment log (`paymentLogs`)
 Non-cash payment reconciliation — tracks whether money collected via a non-cash channel has actually landed in the bank/merchant account. Two ways an entry is created:
-- **Auto** (`origin: 'auto'`): every `confirmSale()` groups the confirmed sale's non-Cash rows (`Card`, `Home Credit`) by payment method and creates one entry per method, `store: 'ITEL'`, `reference` = the SO number.
-- **Manual** (`origin: 'manual'`): staff log Bisen's (ITEL's sister store) Maya terminal transactions by hand via `/payment-logs`, since Bisen sales are outside this app — `store: 'Bisen'`, `method` is `'Maya - Card'` or `'Maya - QRPh'`.
+- **Auto** (`origin: 'auto'`): every `confirmSale()` groups the confirmed sale's non-Cash rows (`Card`, `Home Credit`) by payment method and creates one entry per method, `store: 'ITEL'`, `soNumber` = the SO. If any item in the sale was paid by `Card`, Review Sale lets staff optionally check a box and enter a Reference / Terminal Txn ID, which attaches only to that sale's `Card` entry (required once the checkbox is checked — see `logSalePayments()` in `usePaymentLogs.js`).
+- **Manual** (`origin: 'manual'`): staff log Bisen's (ITEL's sister store) Maya terminal transactions by hand via `/payment-logs`, since Bisen sales are outside this app — `store: 'Bisen'`, `method` is `'Maya - Card'` or `'Maya - QRPh'`, and a Reference / Terminal Txn ID is **required** for both methods (every Bisen entry goes through the same shared Maya terminal, which always produces one).
 
 ```js
 {
@@ -281,7 +281,8 @@ Non-cash payment reconciliation — tracks whether money collected via a non-cas
   store: 'ITEL' | 'Bisen',
   method,                      // 'Card' | 'Home Credit' (ITEL, auto) | 'Maya - Card' | 'Maya - QRPh' (Bisen, manual)
   amount,
-  reference,                    // SO number (auto) or terminal txn ID (manual, optional)
+  soNumber,                     // ITEL/auto entries only — the SO the entry was derived from; always '' for Bisen/manual
+  reference,                    // strictly the Terminal Txn ID: required for Bisen, optional (opt-in) for ITEL Card entries, never set for Home Credit
   notes,                          // manual only, optional
   staff,                            // who logged it (store.currentUser at creation time)
   origin: 'auto' | 'manual',
@@ -290,6 +291,8 @@ Non-cash payment reconciliation — tracks whether money collected via a non-cas
   settledDate, settledBy,               // set when Admin settles a credited Bisen entry (usePaymentLogs.js settlePayment())
 }
 ```
+
+`reference` and `soNumber` used to be conflated (the SO number sat in `reference` for auto entries); they were split so `reference` reliably means "the real-world terminal transaction ID" everywhere it's used. Historical rows created before the split keep their SO number under `reference` and have a blank `soNumber` — there's no backfill migration.
 
 Never cleared by day-close (unlike `saleRows`) — it accumulates until Admin reconciles it. Any logged-in user (Sam/Joyce/Admin) can view the log, add Bisen entries, and edit/delete manually-created entries (`origin: 'manual'`) to correct mistakes — auto-logged ITEL entries (`origin: 'auto'`) are read-only since they mirror a real confirmed sale. Only Admin can mark an entry credited/pending, settle/revert a Bisen entry, or force a full resync (see `usePaymentLogs.js` and `PaymentLogsPage.vue`).
 
@@ -389,9 +392,9 @@ Today/Week/Month period selector; pulls `?action=getSales` from Sheets and filte
 KPI cards (today/week/month net sales), daily-target progress bar, a 7-day CSS bar chart, an inline-SVG payment-method donut (Cash/Card/Home Credit), and a staff-performance leaderboard — all derived from the same `getSales` payload used by Reports.
 
 ### 8.9 Payment Logs (`/payment-logs`, `PaymentLogsPage.vue`) — all users, Admin has extra controls
-Non-cash payment reconciliation. ITEL's `Card`/`Home Credit` sales are logged automatically (grouped per SO, per method) whenever `confirmSale()` runs. Any user can also log Bisen's (sister store) Maya terminal transactions (`Maya - Card` / `Maya - QRPh`) by hand, since Bisen sales don't flow through this app. Any user can **edit** (store/method/amount/reference/notes) or **delete** manually-created entries to correct mistakes — auto-logged ITEL entries are read-only, since they mirror a real confirmed sale. Search + store/status filter mirror the Purchase Orders page. Every entry starts `pending`; **Admin only** can mark it `credited` (or revert it), and for Bisen entries can further **settle** a credited entry (or revert that too) — see [§6](#6-core-data-structures)'s Payment log lifecycle. The page gets a prominent **Accounts Receivable (ITEL)** (Admin-only) / **Accounts Payable (Bisen)** (all users) summary, plus a **Push All to Sheets** full-resync button. Pulls `?action=getPaymentLogs` on mount (when the offline queue is empty) to merge in entries logged from other staff devices, so Admin sees the full cross-device picture.
+Non-cash payment reconciliation. ITEL's `Card`/`Home Credit` sales are logged automatically (grouped per SO, per method) whenever `confirmSale()` runs, tagged with that sale's SO Number; if any item was paid by Card, Review Sale lets staff optionally record a Reference / Terminal Txn ID for it (required once opted into). Any user can also log Bisen's (sister store) Maya terminal transactions (`Maya - Card` / `Maya - QRPh`) by hand, since Bisen sales don't flow through this app — a Reference / Terminal Txn ID is required for both methods. Any user can **edit** (store/method/amount/reference/notes) or **delete** manually-created entries to correct mistakes — auto-logged ITEL entries are read-only, since they mirror a real confirmed sale. Search + store/status filter mirror the Purchase Orders page. Every entry starts `pending`; **Admin only** can mark it `credited` (or revert it), and for Bisen entries can further **settle** a credited entry (or revert that too) — see [§6](#6-core-data-structures)'s Payment log lifecycle. The page gets a prominent **Accounts Receivable (ITEL)** (Admin-only) / **Accounts Payable (Bisen)** (all users) summary, plus a **Push All to Sheets** full-resync button. Pulls `?action=getPaymentLogs` on mount (when the offline queue is empty) to merge in entries logged from other staff devices, so Admin sees the full cross-device picture.
 
-Rendered as a **table, not cards** (`Date`, `Store/Method`, `Amount`, `Reference`, `Staff`, `Status`, actions), since this log only grows and never day-clears — a card list would get unbounded. Client-side paginated: a "Rows per page" selector (`10` default, `25`/`50`/`100`) plus Prev/Next, both scoped to `filteredLogs` (post search/filter) so paging always matches what's currently shown; any change to search, store/status filter, or page size snaps back to page 1 to avoid landing on an empty page.
+Rendered as a **table, not cards** (`Date`, `Store/Method`, `Amount`, `SO Number`, `Reference`, `Staff`, `Status`, actions), since this log only grows and never day-clears — a card list would get unbounded. Client-side paginated: a "Rows per page" selector (`10` default, `25`/`50`/`100`) plus Prev/Next, both scoped to `filteredLogs` (post search/filter) so paging always matches what's currently shown; any change to search, store/status filter, or page size snaps back to page 1 to avoid landing on an empty page.
 
 The **Status** column is Admin's control surface: a plain `<select>` bound to the row's status (options are `Pending`/`Credited` for ITEL, `Pending`/`Credited`/`Settled` for Bisen) — picking a value calls the same guarded `usePaymentLogs.js` functions the old per-transition buttons called (`onStatusChange()` in `PaymentLogsPage.vue`), so an invalid jump (e.g. Pending straight to Settled) is still rejected by `settlePayment()`'s own check and the `<select>` snaps back to the real status on next render (it's bound via `:value`, not `v-model`, specifically so a rejected change doesn't stick optimistically). Non-admin users see the same information as a read-only colored badge instead. Row actions are reduced to three icon-only buttons: **Edit**/**Delete** (manually-created entries only, any user) and **Revert** (Admin-only, hidden once a row is already `pending`) — a one-click shortcut that steps back exactly one stage (`settled → credited` or `credited → pending`) without opening the dropdown.
 
@@ -471,7 +474,7 @@ Verified by executing the real extracted script against a simulated "old 4-colum
 | `Issue Log` | `ID` (client-generated `ERR-…`) | `logIssue` (upsert), `updateIssueStatus` | Upsert / full overwrite via `pushIssueLogs` |
 | `Master List` | `Key` (`ik(product)`, the one tab that stores the composite key as an actual column) | `pushMasterList`/`saveProducts` | Full overwrite |
 
-No tab has engine-enforced referential integrity. Every cross-tab relationship is either a **string re-derived from other columns at the moment a script function runs** (e.g. `Model + ' ' + RAM + '/' + Storage`, mirroring the client-side `ik()` helper, used by `Inventory`/`getAllData`) or a plain copied value (the PO number/bundle code sitting in Sales Log column B, a Sales Log SO string copied into a Payment Log's `Reference`, or a `MainProductKey`/`AddonProductKey` sitting in `Promotions`/`Freebies` uninterpreted until `getAllData` or the client resolves it against `Master List`).
+No tab has engine-enforced referential integrity. Every cross-tab relationship is either a **string re-derived from other columns at the moment a script function runs** (e.g. `Model + ' ' + RAM + '/' + Storage`, mirroring the client-side `ik()` helper, used by `Inventory`/`getAllData`) or a plain copied value (the PO number/bundle code sitting in Sales Log column B, a Sales Log SO string copied into a Payment Log's `SO Number`, or a `MainProductKey`/`AddonProductKey` sitting in `Promotions`/`Freebies` uninterpreted until `getAllData` or the client resolves it against `Master List`).
 
 ### 10.2 `Sales Log` (created by `initSheets`)
 
@@ -558,7 +561,7 @@ Rows are still appended in insertion order; "the sale" as a unit still only exis
 | C | Store | string | `logPayment` / `editPaymentLog` — `ITEL` \| `Bisen` |
 | D | Method | string | `logPayment` / `editPaymentLog` — `Card` \| `Home Credit` (ITEL) or `Maya - Card` \| `Maya - QRPh` (Bisen) |
 | E | Amount | number (₱) | `logPayment` / `editPaymentLog` |
-| F | Reference | string | `logPayment` / `editPaymentLog` — SO number (auto entries) or free-text terminal txn ID (manual) |
+| F | Reference | string | `logPayment` / `editPaymentLog` — Terminal Txn ID: required for Bisen entries, optional/opt-in for ITEL Card entries, never set for Home Credit |
 | G | Staff | string | `logPayment` (not editable after creation) |
 | H | Origin | string | `logPayment` (not editable) — `auto` \| `manual` |
 | I | Notes | string | `logPayment` / `editPaymentLog` |
@@ -567,6 +570,7 @@ Rows are still appended in insertion order; "the sale" as a unit still only exis
 | L | Credited By | string or `''` | `updatePaymentStatus` |
 | M | Settled Date | ISO string or `''` | `updatePaymentStatus` — **new this revision** |
 | N | Settled By | string or `''` | `updatePaymentStatus` — **new this revision** |
+| O | SO Number | string or `''` | `logPayment` — auto/ITEL entries only; blank for manual/Bisen entries and for rows predating this column — **new this revision** |
 
 Lookup for update/delete (`updatePaymentStatus`, `editPaymentLog`, `deletePaymentLog`) is a linear scan matching column A against `d.id`. Every client-side action for this tab (`logPayment`, `updatePaymentStatus`, `editPaymentLog`, `deletePaymentLog`, `pushPaymentLogs`, `getPaymentLogs`) has a matching, implemented server-side handler — see [§9](#9-offline-first-sync-architecture). `updatePaymentStatus` always writes all four of columns J–N together (`usePaymentLogs.js`'s `pushStatus()` helper sends the log's full current status/credited/settled state on every transition), so a status change never leaves stale settle info from an earlier state.
 

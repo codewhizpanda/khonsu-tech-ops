@@ -161,7 +161,7 @@ export function useSales() {
     return item;
   }
 
-  function confirmSale() {
+  function confirmSale(cardRef = '') {
     if (!store.pendingItems.length) { toast('No items to confirm', 'error'); return false; }
     if (!store.currentSO) store.currentSO = makeSoNumber();
     const so = store.currentSO;
@@ -236,7 +236,7 @@ export function useSales() {
     store.saveInv();
     const newRows = store.saleRows.slice(rowStart);
     tryPush('logSale', { date: new Date().toISOString(), rows: newRows });
-    usePaymentLogs().logSalePayments(so, newRows);
+    usePaymentLogs().logSalePayments(so, newRows, cardRef);
     if (decrements.length) {
       tryPush('updateInventoryItems', {
         items: decrements.map(d => ({

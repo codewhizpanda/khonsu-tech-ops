@@ -93,8 +93,8 @@ function handleRemove(idx) {
   if (!store.pendingItems.length) screen.value = 'picker';
 }
 
-function handleConfirm() {
-  if (sales.confirmSale()) screen.value = 'picker';
+function handleConfirm(cardRef) {
+  if (sales.confirmSale(cardRef)) screen.value = 'picker';
 }
 
 function handleCloseDay() {

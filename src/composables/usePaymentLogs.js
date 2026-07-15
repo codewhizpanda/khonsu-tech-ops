@@ -11,7 +11,7 @@ export function usePaymentLogs() {
   const store = useAppStore();
   const { toast } = useToast();
 
-  function addPaymentLog({ storeName, method, amount, reference = '', notes = '', origin = 'manual' }) {
+  function addPaymentLog({ storeName, method, amount, reference = '', soNumber = '', notes = '', origin = 'manual' }) {
     const entry = {
       id: 'PL-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
       date: new Date().toISOString(),
@@ -19,6 +19,7 @@ export function usePaymentLogs() {
       method,
       amount: Number(amount) || 0,
       reference,
+      soNumber,
       notes,
       staff: store.currentUser,
       origin,
@@ -35,7 +36,9 @@ export function usePaymentLogs() {
   }
 
   // Auto-derive one log per non-cash payment method used in a confirmed ITEL sale.
-  function logSalePayments(so, rows) {
+  // cardRef is the optional Terminal Txn ID staff entered on the Review Sale screen —
+  // it only ever attaches to the 'Card' group, since that's the only method it's collected for.
+  function logSalePayments(so, rows, cardRef = '') {
     const groups = {};
     rows.forEach(r => {
       if (!r.payment || r.payment === 'Cash') return;
@@ -43,12 +46,21 @@ export function usePaymentLogs() {
       groups[r.payment] = (groups[r.payment] || 0) + amt;
     });
     Object.entries(groups).forEach(([method, amount]) => {
-      if (amount > 0) addPaymentLog({ storeName: 'ITEL', method, amount, reference: so, origin: 'auto' });
+      if (amount > 0) {
+        addPaymentLog({
+          storeName: 'ITEL', method, amount, soNumber: so,
+          reference: method === 'Card' ? cardRef : '',
+          origin: 'auto',
+        });
+      }
     });
   }
 
   function addBisenLog({ method, amount, reference, notes }) {
-    if (!method || !(Number(amount) > 0)) { toast('Enter a payment method and amount', 'error'); return false; }
+    if (!method || !(Number(amount) > 0) || !(reference || '').trim()) {
+      toast('Enter a payment method, amount, and reference', 'error');
+      return false;
+    }
     addPaymentLog({ storeName: 'Bisen', method, amount, reference, notes, origin: 'manual' });
     toast('Payment log added', 'success');
     return true;
@@ -123,6 +135,7 @@ export function usePaymentLogs() {
     const log = store.paymentLogs.find(p => p.id === id);
     if (!log) return false;
     if (!storeName || !method || !(Number(amount) > 0)) { toast('Enter a store, method and amount', 'error'); return false; }
+    if (storeName === 'Bisen' && !reference.trim()) { toast('Enter a reference for a Bisen entry', 'error'); return false; }
     log.store     = storeName;
     log.method    = method;
     log.amount    = Number(amount) || 0;
@@ -149,6 +162,7 @@ export function usePaymentLogs() {
       l.id, l.date, l.store, l.method, l.amount, l.reference || '',
       l.staff || '', l.origin || 'manual', l.notes || '', l.status || 'pending',
       l.creditedDate || '', l.creditedBy || '', l.settledDate || '', l.settledBy || '',
+      l.soNumber || '',
     ]));
     try {
       const res  = await fetch(store.scriptUrl, {
@@ -185,6 +199,7 @@ export function usePaymentLogs() {
           method: String(r.Method || ''),
           amount: Number(r.Amount) || 0,
           reference: String(r.Reference || ''),
+          soNumber: String(r.SONumber || ''),
           notes: String(r.Notes || ''),
           staff: String(r.Staff || ''),
           origin: String(r.Origin || 'manual'),

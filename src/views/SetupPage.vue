@@ -242,7 +242,7 @@ function initSheets() {
     'Inventory': ['Category','Model','RAM','Storage','Colors','Unit Price','SRP','Stock','Reorder Point'],
     'Purchase Orders': ['PO Number','Date','Supplier','Items','Quantities','Status','Approver'],
     'PO Items': ['POID','ItemName','Qty','Color'],
-    'Payment Logs': ['ID','Date','Store','Method','Amount','Reference','Staff','Origin','Notes','Status','Credited Date','Credited By','Settled Date','Settled By'],
+    'Payment Logs': ['ID','Date','Store','Method','Amount','Reference','Staff','Origin','Notes','Status','Credited Date','Credited By','Settled Date','Settled By','SO Number'],
     'Promotions': ['BundleID','Name','Price','MainProductKey','MainProductName','AddonProductKey','AddonProductName'],
     'Freebies': ['MainProductKey','FreebieProductKey','MainProductName','FreebieProductName'],
     'Settings': ['Key','Value'],
@@ -622,7 +622,8 @@ function logPayment(d) {
   if (!sh) return respond({ error: 'No Payment Logs sheet' });
   sh.appendRow([d.id, d.date, d.store, d.method, d.amount || 0, d.reference || '',
     d.staff || '', d.origin || 'manual', d.notes || '', d.status || 'pending',
-    d.creditedDate || '', d.creditedBy || '', d.settledDate || '', d.settledBy || '']);
+    d.creditedDate || '', d.creditedBy || '', d.settledDate || '', d.settledBy || '',
+    d.soNumber || '']);
   return respond({ status: 'Payment logged' });
 }
 
@@ -703,6 +704,7 @@ function getPaymentLogs() {
       CreditedBy: String(r[11] || ''),
       SettledDate: String(r[12] || ''),
       SettledBy: String(r[13] || ''),
+      SONumber: String(r[14] || ''),
     };
   });
   return respond({ logs: logs });

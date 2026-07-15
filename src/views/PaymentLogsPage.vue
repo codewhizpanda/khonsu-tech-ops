@@ -29,6 +29,7 @@ const filteredLogs = computed(() => {
   return store.paymentLogs.filter(l => {
     const matchSearch = !q ||
       (l.reference || '').toLowerCase().includes(q) ||
+      (l.soNumber || '').toLowerCase().includes(q) ||
       (l.method || '').toLowerCase().includes(q) ||
       (l.staff || '').toLowerCase().includes(q) ||
       (l.notes || '').toLowerCase().includes(q);
@@ -232,7 +233,7 @@ function submitEdit() {
     <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
       <div class="sw" style="margin-bottom:0;flex:1;">
         <span class="si"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></span>
-        <input v-model="searchQ" type="text" placeholder="Search reference, method, staff…" />
+        <input v-model="searchQ" type="text" placeholder="Search SO number, reference, method, staff…" />
       </div>
       <button @click="filterOpen = true"
         style="flex-shrink:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);cursor:pointer;color:var(--text);"
@@ -288,6 +289,7 @@ function submitEdit() {
               <th style="padding:10px 12px;text-align:left;white-space:nowrap;">Date</th>
               <th style="padding:10px 12px;text-align:left;white-space:nowrap;">Store / Method</th>
               <th style="padding:10px 12px;text-align:right;white-space:nowrap;">Amount</th>
+              <th style="padding:10px 12px;text-align:left;white-space:nowrap;">SO Number</th>
               <th style="padding:10px 12px;text-align:left;white-space:nowrap;">Reference</th>
               <th style="padding:10px 12px;text-align:left;white-space:nowrap;">Staff</th>
               <th style="padding:10px 12px;text-align:left;white-space:nowrap;">Status</th>
@@ -306,6 +308,7 @@ function submitEdit() {
                 <span v-if="log.origin === 'auto'" style="font-size:11px;color:var(--muted);"> (auto)</span>
               </td>
               <td style="padding:9px 12px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;">{{ fmt(log.amount) }}</td>
+              <td style="padding:9px 12px;white-space:nowrap;font-family:'JetBrains Mono',monospace;">{{ log.soNumber || '—' }}</td>
               <td style="padding:9px 12px;">
                 {{ log.reference || '—' }}
                 <div v-if="log.notes" style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;">{{ log.notes }}</div>
@@ -401,7 +404,7 @@ function submitEdit() {
           <label class="form-label">Amount (₱)</label>
           <input v-model.number="newAmount" type="number" min="0" step="0.01" placeholder="0.00" class="form-control" style="margin-bottom:14px;" />
 
-          <label class="form-label">Reference / Terminal Txn ID (optional)</label>
+          <label class="form-label">Reference / Terminal Txn ID</label>
           <input v-model="newRef" type="text" placeholder="e.g. Maya terminal reference number" class="form-control" style="margin-bottom:14px;" />
 
           <label class="form-label">Notes (optional)</label>
@@ -438,8 +441,8 @@ function submitEdit() {
           <label class="form-label">Amount (₱)</label>
           <input v-model.number="editAmountVal" type="number" min="0" step="0.01" placeholder="0.00" class="form-control" style="margin-bottom:14px;" />
 
-          <label class="form-label">Reference (optional)</label>
-          <input v-model="editRefVal" type="text" placeholder="SO number / terminal reference" class="form-control" style="margin-bottom:14px;" />
+          <label class="form-label">Reference / Terminal Txn ID{{ editStoreVal === 'Bisen' ? '' : ' (optional)' }}</label>
+          <input v-model="editRefVal" type="text" placeholder="Terminal reference number" class="form-control" style="margin-bottom:14px;" />
 
           <label class="form-label">Notes (optional)</label>
           <textarea v-model="editNotesVal" rows="2" class="form-control" style="margin-bottom:18px;resize:vertical;"></textarea>
