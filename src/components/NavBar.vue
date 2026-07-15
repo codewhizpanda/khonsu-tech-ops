@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAppStore } from '@/stores/state.js';
 import { useToast } from '@/composables/useToast.js';
+import { useTimeLog } from '@/composables/useTimeLog.js';
 
 const store  = useAppStore();
 const router = useRouter();
@@ -35,6 +36,7 @@ const navItems = computed(() => {
     items.push(
       { path: '/dashboard',  icon: 'ic-chart',     label: 'Dashboard',        section: 'insights' },
       { path: '/reports',    icon: 'ic-calendar',  label: 'Reports',          section: 'insights' },
+      { path: '/time-log',   icon: 'ic-clock',     label: 'Time Log',         section: 'insights' },
       { path: '/inventory',  icon: 'ic-box',       label: 'Inventory',        section: 'catalog' },
       { path: '/masterlist', icon: 'ic-list',      label: 'Master List',     section: 'catalog' },
       { path: '/po',         icon: 'ic-clipboard', label: 'Purchase Orders', section: 'catalog' },
@@ -53,6 +55,7 @@ function go(path) {
 function isActive(path) { return route.path === path; }
 
 function logout() {
+  if (store.currentUser) useTimeLog().clockOut(store.currentUser);
   store.currentUser = null;
   localStorage.removeItem('kt_user');
   router.push('/sales');

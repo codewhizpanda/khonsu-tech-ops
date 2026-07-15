@@ -14,6 +14,7 @@ export const useAppStore = defineStore('app', () => {
   const pendingItems  = ref([]);
   const paymentLogs   = ref([]);
   const errorLogs     = ref([]);
+  const timeLogs      = ref([]);
   const currentSO     = ref(null);
   const soCounter     = ref(parseInt(localStorage.getItem('kt_so') || '0'));
   const selectedProduct = ref(null);
@@ -51,6 +52,10 @@ export const useAppStore = defineStore('app', () => {
 
   function saveErrorLogs() {
     localStorage.setItem('kt_errlogs', JSON.stringify(errorLogs.value));
+  }
+
+  function saveTimeLogs() {
+    localStorage.setItem('kt_timelogs', JSON.stringify(timeLogs.value));
   }
 
   function saveTodayRows() {
@@ -95,6 +100,7 @@ export const useAppStore = defineStore('app', () => {
 
     try { paymentLogs.value = JSON.parse(localStorage.getItem('kt_paylogs') || '[]'); } catch { paymentLogs.value = []; }
     try { errorLogs.value = JSON.parse(localStorage.getItem('kt_errlogs') || '[]'); } catch { errorLogs.value = []; }
+    try { timeLogs.value = JSON.parse(localStorage.getItem('kt_timelogs') || '[]'); } catch { timeLogs.value = []; }
 
     try { syncQueue.value = JSON.parse(localStorage.getItem('kt_queue') || '[]'); } catch { syncQueue.value = []; }
 
@@ -132,10 +138,10 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     currentUser, masterList, PRODUCTS, predefinedBundles, productFreebies,
-    settings, inventory, saleRows, pendingItems, paymentLogs, errorLogs, currentSO, soCounter,
+    settings, inventory, saleRows, pendingItems, paymentLogs, errorLogs, timeLogs, currentSO, soCounter,
     selectedProduct, selectedAddon, activeCat, searchQ, addonCat,
     bundleCounter, purchaseOrders, scriptUrl, editingPOId, syncQueue,
     units, selectedIMEIs, receiveDraftItems, restockProduct,
-    saveInv, saveSettings, savePOs, savePaymentLogs, saveErrorLogs, saveTodayRows, clearTodayRows, initApp,
+    saveInv, saveSettings, savePOs, savePaymentLogs, saveErrorLogs, saveTimeLogs, saveTodayRows, clearTodayRows, initApp,
   };
 });

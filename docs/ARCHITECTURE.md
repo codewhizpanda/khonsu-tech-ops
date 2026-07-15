@@ -100,6 +100,7 @@ src/
     useToast.js                  ← module-singleton toast notification state
     usePaymentLogs.js              ← non-cash payment log CRUD, auto-derivation from confirmed sales, credited/pending status, cross-device pull
     useErrorLog.js                   ← sync-failure/runtime-error logging, dedup-by-queueId, resolve/reopen, cross-device pull (deliberately does not import useSync.js — see §9)
+    useTimeLog.js                     ← staff clock-in/out log (payroll), Admin edit/delete on any entry, cross-device pull
 
   components/
     SvgSprite.vue                ← inline <symbol> definitions for all icons, mounted once
@@ -130,6 +131,7 @@ src/
     DashboardPage.vue                                   ← KPI cards, 7-day bar chart, payment donut, staff leaderboard
     PaymentLogsPage.vue                                  ← non-cash payment reconciliation log (ITEL auto + Bisen manual), Admin credits/deletes
     IssuesPage.vue                                        ← sync-failure/runtime-error log, Admin resolves/reopens + force-resync
+    TimeLogPage.vue                                        ← staff login/logout log for payroll, per-staff hour totals, Admin edits/adds/deletes any entry
 ```
 
 **Legacy directories no longer present:** the original single-file `tecnix-ops_25.html` and the intermediate `js/*.js` ES-module version described in earlier docs have been fully replaced by `src/`. They exist only in git history (see [§14](#14-project-history--legacy-versions)) — do not treat old copies of `CLAUDE.md`/`TECHNICAL.md` in this repo as current; they describe the pre-Vue architecture.
@@ -153,6 +155,7 @@ All runtime state lives in one Pinia **setup store**, `useAppStore()` (`src/stor
   pendingItems: [],                        // staged, not yet confirmed
   paymentLogs: [],                          // non-cash payment reconciliation log (ITEL auto + Bisen manual), never day-cleared
   errorLogs: [],                             // sync-failure + runtime-error log, never day-cleared
+  timeLogs: [],                               // staff clock-in/out log (payroll), never day-cleared
   currentSO: null,                           // active Sales Order string
   soCounter, bundleCounter,                    // numbering counters
   selectedProduct, selectedAddon,                // active detail-screen selections
@@ -193,6 +196,7 @@ All runtime state lives in one Pinia **setup store**, `useAppStore()` (`src/stor
 | `kt_queue` | Offline sync queue (JSON) — see [§9](#9-offline-first-sync-architecture) |
 | `kt_paylogs` | Payment logs array (JSON) — non-cash reconciliation, see [§6](#6-core-data-structures) |
 | `kt_errlogs` | Sync-failure/runtime-error log array (JSON) — see [§6](#6-core-data-structures) |
+| `kt_timelogs` | Staff clock-in/out log array (JSON) — see [§6](#6-core-data-structures) |
 
 ---
 
@@ -323,6 +327,29 @@ Sync-failure and runtime-error tracking, created two ways:
 
 `useErrorLog.js` deliberately does **not** import `tryPush`/`enqueue` from `useSync.js` — `useSync.js` imports *from* `useErrorLog.js` to log failures, so the reverse import would be circular. Instead, issue-log pushes are one-shot/best-effort (`fetch` directly, swallow failures) — the local copy is always saved regardless, and Admin's **Push All to Sheets** button on `/issues` is the manual recovery valve if a push never lands, mirroring `pushAllPaymentLogs()`.
 
+### Time log (`timeLogs`)
+Payroll record of every staff login/logout, created two ways:
+- **`origin: 'auto'`** — `login()` (`LockScreen.vue`) fires `clockIn`; `logout()` (`NavBar.vue`) fires `clockOut` for whichever user is currently signed in, *before* `currentUser` is cleared.
+- **`origin: 'manual'`** — Admin adds a full entry on `/time-log` for a day nobody used the app at all (e.g. a device was dead).
+
+```js
+{
+  id: 'TL-1735900000000-42',
+  user: 'Sam' | 'Joyce' | 'Admin',
+  clockIn,                      // ISO timestamp, client-claimed and canonical (see below)
+  clockOut,                       // ISO timestamp, or null while still clocked in
+  origin: 'auto' | 'manual',
+  notes,                             // optional; typically used to explain a correction
+  correctedBy, correctedAt,             // set whenever Admin edits an existing entry's times — never a silent overwrite
+}
+```
+
+**Client-timestamp-canonical, not server-authoritative** — unlike a hardware time clock, `clockIn`/`clockOut` are the values the client claims, exactly like every other timestamp already in this app (`paymentLogs.date`, `errorLogs.date`, etc. — all client-generated, pushed fire-and-forget via `tryPush()`, which doesn't return its response to the caller). Making this one field server-authoritative would have meant a bespoke synchronous-fetch path found nowhere else in the codebase. Instead, the Apps Script additionally stamps `Clock In Received At`/`Clock Out Received At` (its own `new Date()`, sheet-only, not mirrored into the local model) whenever a row is actually written — a real, non-client-controlled fact Admin can compare against the claimed time to spot an anomaly (e.g. a claimed clock-in far earlier than when it was actually received), without changing this app's established sync architecture.
+
+`clockOut(user)` doesn't reference a client-remembered "current open entry" — the Apps Script scans `Time Log` for that user's most recent row with a blank `Clock Out` and closes it. This is more robust than a client-tracked id (still works if the open entry was opened on a different device, or the local copy was cleared), at the cost of the same "no cross-device coordination" limitation already true of SO/PO numbering: if a user is somehow clocked in twice concurrently, closing "the most recent open row" may close the wrong one.
+
+Unlike `paymentLogs` (where only `manual`-origin entries are editable), **Admin can edit or delete any entry, `auto` included** — the most common real-world correction is "staff forgot to clock out," which only editing an `auto` entry's `clockOut` can fix. Every edit stamps `correctedBy`/`correctedAt` so the correction is always visible, never silent.
+
 ### Promotion / bundle
 ```js
 { id, name, price, mainKey, mainName, addonKey, addonName }
@@ -403,6 +430,9 @@ The filter button (search bar) intentionally does **not** change color when a fi
 ### 8.10 Sync Issues (`/issues`, `IssuesPage.vue`) — Admin only
 Every sync failure and uncaught runtime error surfaces here instead of only the browser console — see the `errorLogs` structure in [§6](#6-core-data-structures). Summary cards break down open issues by type (sync vs. runtime) alongside a resolved count. Search + type/status filter mirror the other log pages. Admin marks an issue **Resolved** once the underlying data has been checked/fixed in Sheets, or **Reopens** it; a nav badge shows the live open-issue count. **Push All to Sheets** force-overwrites the Issue Log sheet from local state, for the same reason Payment Logs has one — issue-log pushes are one-shot/best-effort (see [§6](#6-core-data-structures)'s note on avoiding a circular import with `useSync.js`), so a push can occasionally not land and needs a manual nudge.
 
+### 8.11 Time Log (`/time-log`, `TimeLogPage.vue`) — Admin only
+Payroll view of every staff login/logout — see the `timeLogs` structure in [§6](#6-core-data-structures). Summary cards show total hours per staff (Sam/Joyce/Admin) for whatever's currently filtered. Filters: staff name, plus a from/to date range on `clockIn` (in addition to the usual search box). Table columns: Staff, Clock In, Clock Out (or a "Still clocked in" badge while `clockOut` is null), computed Duration, Origin, and a corrected-by/at note plus any notes shown inline. **Every** row — auto or manual — has Edit/Delete, unlike Payment Logs' auto-is-read-only rule, since the most common need here is Admin fixing a forgotten clock-out; editing stamps `correctedBy`/`correctedAt` so the fix is visible, not silent. **Add Manual Entry** covers a day nobody used the app at all. **Push All to Sheets** mirrors the same recovery-valve pattern as Payment Logs/Issues. Pulls `?action=getTimeLogs` on mount (when the offline queue is empty).
+
 ---
 
 ## 9. Offline-First Sync Architecture
@@ -419,7 +449,7 @@ Google Sheets is intended as the cross-device **source of truth**; every device 
 | `restoreTodaySales()` | `GET ?action=getSales`, filtered to today, used to rehydrate `saleRows` on login (in addition to the local `kt_today` fallback in `initApp()`). |
 
 ### Actions the frontend sends — all implemented server-side as of this revision
-`init`, `logSale`, `voidSaleRow`, `updateInventoryItems`, `saveInventory`, `saveProducts` (alias of `pushMasterList`), `updateMasterList` (external-caller variant of `pushMasterList` — see [§10.7](#107-master-list-lazily-created--not-part-of-initsheets)), `updateUnitStatus`, `saveUnits`, `savePO`, `updatePOStatus`, `savePromotions`, `saveFreebies`, `saveSettings`, `verifyPin`, `setPin`, `verifyStaffPin`, `setUserPin`, `resetStaffPin` (**new this revision**), `logPayment`, `updatePaymentStatus`, `pushPaymentLogs`, `editPaymentLog`, `deletePaymentLog`, `logIssue`, `updateIssueStatus`, `pushIssueLogs`, plus GETs `getAllData`, `getSales`, `getPaymentLogs`, `getIssueLogs`, `getUnits` (**new this revision**), `getMasterList` (legacy), `ping`. Legacy/manual-only actions `logPO`, `pushInventory`, `pushMasterList` remain for the Setup page's "Push All Data" full-resync button.
+`init`, `logSale`, `voidSaleRow`, `updateInventoryItems`, `saveInventory`, `saveProducts` (alias of `pushMasterList`), `updateMasterList` (external-caller variant of `pushMasterList` — see [§10.7](#107-master-list-lazily-created--not-part-of-initsheets)), `updateUnitStatus`, `saveUnits`, `savePO`, `updatePOStatus`, `savePromotions`, `saveFreebies`, `saveSettings`, `verifyPin`, `setPin`, `verifyStaffPin`, `setUserPin`, `resetStaffPin`, `logPayment`, `updatePaymentStatus`, `pushPaymentLogs`, `editPaymentLog`, `deletePaymentLog`, `logIssue`, `updateIssueStatus`, `pushIssueLogs`, `clockIn`, `clockOut`, `addTimeLog`, `editTimeLog`, `deleteTimeLog`, `pushTimeLogs` (**new this revision**), plus GETs `getAllData`, `getSales`, `getPaymentLogs`, `getIssueLogs`, `getUnits`, `getTimeLogs` (**new this revision**), `getMasterList` (legacy), `ping`. Legacy/manual-only actions `logPO`, `pushInventory`, `pushMasterList` remain for the Setup page's "Push All Data" full-resync button.
 
 ### IMEI unit cross-device sync (`pullUnits()`, `useSync.js`)
 Previously a real gap, not just a documentation note: `saveUnits`/`updateUnitStatus` pushed real received-stock IMEIs *to* Sheets, but nothing ever pulled them back down — a second device (another staff phone, or any fresh/private-window session) had no way to learn a unit another device had already received. Its own `initApp()` dummy-IMEI backfill (see [§5](#5-state-management)) would silently invent a placeholder `DUMMY-...` unit to match the inventory stock count instead, and that placeholder could never match a real barcode scan — the exact failure mode this section used to only describe as a one-way (push-only) limitation.
@@ -451,7 +481,7 @@ The Google Sheet **is** the database — there is no separate DBMS. Each tab is 
 
 ### 10.1 Tab overview
 
-All eleven tabs below are created up front by `initSheets()` (i.e. the moment Setup's **Connect** succeeds, or `init` is run manually in the Apps Script editor) except `Master List`, which is only lazily created the first time `pushMasterList`/`saveProducts` runs.
+All twelve tabs below are created up front by `initSheets()` (i.e. the moment Setup's **Connect** succeeds, or `init` is run manually in the Apps Script editor) except `Master List`, which is only lazily created the first time `pushMasterList`/`saveProducts` runs.
 
 **`initSheets()` is also the schema-migration path for existing tabs, not just first-time creation.** On every call, row 1 of every tab is unconditionally (re)written to exactly match the current header list in code — existing tabs get their header row replaced outright, brand-new tabs get it appended; no data row (row 2+) is ever touched. This is what makes it safe to re-run `init`/Connect after a script update that changes a tab's columns, and it went through two iterations to get right:
 - **First version:** appended only newly-added *trailing* header columns, guarded by `if (sh.getLastRow() === 0)` to skip brand-new-vs-existing tabs. That guard only ever handled a *completely empty* sheet — re-running `init` on a tab that already had data silently did nothing, even after redeploying a version with new columns (e.g. `Sale ID`/`IMEI` being added to `Sales Log`).
@@ -472,6 +502,7 @@ Verified by executing the real extracted script against a simulated "old 4-colum
 | `Settings` | `Key` (simple key/value table) | `saveSettings`, `setPin` (stores `AdminPinHash`), `setUserPin`/`resetStaffPin` (store `SamPinHash`/`JoycePinHash`) | Upsert per key |
 | `Units` | `IMEI` | `saveUnits` (append), `updateUnitStatus` (matched by IMEI) | Mixed; col J `IsDummy` added this revision |
 | `Issue Log` | `ID` (client-generated `ERR-…`) | `logIssue` (upsert), `updateIssueStatus` | Upsert / full overwrite via `pushIssueLogs` |
+| `Time Log` | `ID` (client-generated `TL-…`) | `clockIn`/`addTimeLog` (append), `clockOut` (matched by most-recent-open row for the user, not by ID), `editTimeLog`/`deleteTimeLog` (matched by ID) — **new this revision** | Upsert / full overwrite via `pushTimeLogs` |
 | `Master List` | `Key` (`ik(product)`, the one tab that stores the composite key as an actual column) | `pushMasterList`/`saveProducts` | Full overwrite |
 
 No tab has engine-enforced referential integrity. Every cross-tab relationship is either a **string re-derived from other columns at the moment a script function runs** (e.g. `Model + ' ' + RAM + '/' + Storage`, mirroring the client-side `ik()` helper, used by `Inventory`/`getAllData`) or a plain copied value (the PO number/bundle code sitting in Sales Log column B, a Sales Log SO string copied into a Payment Log's `SO Number`, or a `MainProductKey`/`AddonProductKey` sitting in `Promotions`/`Freebies` uninterpreted until `getAllData` or the client resolves it against `Master List`).
@@ -606,6 +637,23 @@ Only created the first time `pushMasterList`/`saveProducts` succeeds (Setup's "P
 
 Full delete-and-reinsert overwrite on every save — from either "Push All Data" (Setup) or "Save Changes" (Master List page), now that `saveProducts` is wired up. `getMasterList()` (legacy `doGet` action, no longer called by any current view) reads this tab, falling back to `Inventory` if `Master List` doesn't exist yet.
 
+### 10.8 `Time Log` (created by `initSheets`) — **new this revision**
+
+| # | Column | Type | Written by |
+|---|---|---|---|
+| A | ID | string | `clockIn`/`addTimeLog` — client-generated `TL-{timestamp}-{rand}` |
+| B | User | string | `clockIn`/`addTimeLog` — `Sam` \| `Joyce` \| `Admin` |
+| C | Clock In | ISO string | `clockIn`/`addTimeLog`/`editTimeLog` — client-claimed, canonical (see [§6](#6-core-data-structures)) |
+| D | Clock In Received At | ISO string (server `new Date()`) | `clockIn` only — audit-only, never read back by the client |
+| E | Clock Out | ISO string or `''` | `clockOut`/`addTimeLog`/`editTimeLog` — blank means still clocked in |
+| F | Clock Out Received At | ISO string (server `new Date()`) | `clockOut` only — audit-only |
+| G | Origin | string | `clockIn`/`addTimeLog` (not editable) — `auto` \| `manual` |
+| H | Notes | string | `addTimeLog`/`editTimeLog` |
+| I | Corrected By | string or `''` | `editTimeLog` — always `'Admin'`, since only Admin can reach `/time-log` |
+| J | Corrected At | ISO string or `''` | `editTimeLog` |
+
+`clockOut` is the one write in this whole schema that **isn't** matched by ID — it linear-scans for the given `User`'s most recent row with a blank `Clock Out` (highest row index first) and closes that one, since the client deliberately doesn't track a "current open entry id" (see [§6](#6-core-data-structures)). `editTimeLog`/`deleteTimeLog` are ordinary ID-matched scans like every other tab.
+
 A second action, `updateMasterList`, targets the same tab with the same full-overwrite semantics but accepts named-field row objects (`{key, category, model, ram, storage, colors, unitPrice, srp, status}`) rather than the frontend's positional arrays — added for an external caller (an LLM session turning supplier Viber updates into structured data) that can't easily reproduce the frontend's exact column ordering. It does not go through the app's offline queue; the sheet is written directly, and the change reaches a given device only on its next `pullFromSheets()` (app load, or Settings → Sync → **Pull Latest Data**).
 
 ---
@@ -680,6 +728,7 @@ There is no real authentication — `router.beforeEach` only checks `store.curre
 - **No day-end submit gate** — sales push to Sheets immediately per-transaction; there's no explicit "has today been reconciled" state, so a device left connected indefinitely will keep accumulating `saleRows` until `closeDayReport()` is manually invoked.
 - **PIN is now checked server-side, but is still not real security** — see [§11](#users--permissions). `verifyPin`/`setPin` now hash and compare against a stored `Settings!AdminPinHash` (defaulting to the hash of `1234` until changed), so a correctly-deployed script enforces a real custom PIN — but the app and its `localStorage` remain fully accessible client-side regardless, and the local SHA-256 fallback (same default hash) still applies whenever Sheets is unreachable or not connected.
 - **Sam/Joyce PINs (`SamPinHash`/`JoycePinHash`) use the same soft-gate model, via new actions** — `verifyStaffPin`/`setUserPin`/`resetStaffPin` are deliberately separate from `verifyPin`/`setPin` (which stay Admin-only and unchanged), so a store still running an un-redeployed script just gets a clean "Unknown action" for the new ones instead of the old script silently applying a staff PIN change to `AdminPinHash`. Until each staff member changes it, Sam and Joyce (and Admin) all share the same default `1234` hash, so the anti-buddy-punching value only kicks in once PINs actually diverge — and like Admin's PIN, this is still a soft convenience gate, not real security.
+- **Time Log's `clockIn`/`clockOut` timestamps are client-claimed, not server-verified** — see [§6](#6-core-data-structures). This matches every other timestamp already in this app, but means a device with a wrong system clock (or a user editing `localStorage` directly) can misreport its own clock-in/out time; the Apps Script's own `Clock In/Out Received At` columns are the only independent signal, and nothing currently auto-flags a large gap between claimed and received — Admin has to notice it by eye. `clockOut`'s "most recent open row for this user" lookup also has the same no-cross-device-coordination limitation as SO/PO numbering: a user clocked in twice concurrently (e.g. forgot to log out on one device before logging in on another) could have the wrong session closed.
 - **`localStorage` is origin-scoped** — moving the deployed URL (e.g. changing the GitHub Pages path) orphans all local data for staff devices already in use; only pricing/stock/sales already pushed to Sheets would be recoverable.
 - **CORS in local dev** — Apps Script only sends permissive CORS headers from the deployed Web App URL, not from `localhost`; errors during `npm run dev` against a live script are expected and are swallowed into the offline queue (and logged to `/issues`) by design.
 - **Issue-log pushes are best-effort, not queued** — unlike every other sync action, `logIssue`/`updateIssueStatus` pushes (`useErrorLog.js`) don't retry via the offline queue (to avoid a circular import with `useSync.js` — see [§6](#6-core-data-structures)). If Sheets is briefly unreachable exactly when an issue is logged, that specific push can be lost; the local copy never is, and Admin's **Push All to Sheets** on `/issues` is the manual recovery path.

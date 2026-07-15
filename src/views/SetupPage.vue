@@ -167,6 +167,12 @@ function doPost(e) {
     if (d.action === 'logIssue')            return logIssue(d);
     if (d.action === 'updateIssueStatus')   return updateIssueStatus(d);
     if (d.action === 'pushIssueLogs')       return pushIssueLogs(d);
+    if (d.action === 'clockIn')             return clockIn(d);
+    if (d.action === 'clockOut')            return clockOut(d);
+    if (d.action === 'addTimeLog')          return addTimeLog(d);
+    if (d.action === 'editTimeLog')         return editTimeLog(d);
+    if (d.action === 'deleteTimeLog')       return deleteTimeLog(d);
+    if (d.action === 'pushTimeLogs')        return pushTimeLogs(d);
     return respond({ error: 'Unknown action' });
   } catch (err) { return respond({ error: err.toString() }); }
 }
@@ -179,6 +185,7 @@ function doGet(e) {
   if (e.parameter.action === 'getAllData')       return getAllData();
   if (e.parameter.action === 'getIssueLogs')     return getIssueLogs();
   if (e.parameter.action === 'getUnits')         return getUnits();
+  if (e.parameter.action === 'getTimeLogs')      return getTimeLogs();
   return respond({ status: 'Khonsu Tech OPS running' });
 }
 
@@ -251,6 +258,7 @@ function initSheets() {
     'Settings': ['Key','Value'],
     'Units': ['IMEI','ProductKey','ProductName','Color','Status','DRNumber','ReceivedDate','SONumber','SoldDate','IsDummy'],
     'Issue Log': ['ID','Date','LastSeen','Type','Action','QueueID','Message','Context','Attempts','Status','ResolvedDate','ResolvedBy'],
+    'Time Log': ['ID','User','Clock In','Clock In Received At','Clock Out','Clock Out Received At','Origin','Notes','Corrected By','Corrected At'],
   };
   Object.entries(tabs).forEach(([name, headers]) => {
     let sh = SS.getSheetByName(name);
@@ -799,6 +807,95 @@ function getIssueLogs() {
     };
   });
   return respond({ issues: issues });
+}
+
+function clockIn(d) {
+  const sh = SS.getSheetByName('Time Log');
+  if (!sh) return respond({ error: 'No Time Log sheet' });
+  sh.appendRow([d.id, d.user, d.clockIn, new Date(), '', '', 'auto', '', '', '']);
+  return respond({ status: 'Clocked in' });
+}
+
+// No id is sent — finds this user's most recent open row (Clock Out blank) and
+// closes it, so logging out still finalizes the right row even if the open
+// entry was opened on a different device than the one calling clockOut here.
+function clockOut(d) {
+  const sh = SS.getSheetByName('Time Log');
+  if (!sh) return respond({ error: 'No Time Log sheet' });
+  const data = sh.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][1]) === String(d.user || '') && !data[i][4]) {
+      sh.getRange(i + 1, 5).setValue(d.clockOut || '');
+      sh.getRange(i + 1, 6).setValue(new Date());
+      return respond({ status: 'Clocked out' });
+    }
+  }
+  return respond({ status: 'No open session found' });
+}
+
+function addTimeLog(d) {
+  const sh = SS.getSheetByName('Time Log');
+  if (!sh) return respond({ error: 'No Time Log sheet' });
+  sh.appendRow([d.id, d.user, d.clockIn, '', d.clockOut || '', '', d.origin || 'manual', d.notes || '', '', '']);
+  return respond({ status: 'Time entry added' });
+}
+
+function editTimeLog(d) {
+  const sh = SS.getSheetByName('Time Log');
+  if (!sh) return respond({ error: 'No Time Log sheet' });
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.id)) {
+      sh.getRange(i + 1, 3).setValue(d.clockIn || '');
+      sh.getRange(i + 1, 5).setValue(d.clockOut || '');
+      sh.getRange(i + 1, 8).setValue(d.notes || '');
+      sh.getRange(i + 1, 9).setValue(d.correctedBy || '');
+      sh.getRange(i + 1, 10).setValue(d.correctedAt || '');
+      break;
+    }
+  }
+  return respond({ status: 'Time entry updated' });
+}
+
+function deleteTimeLog(d) {
+  const sh = SS.getSheetByName('Time Log');
+  if (!sh) return respond({ error: 'No Time Log sheet' });
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.id)) {
+      sh.deleteRow(i + 1);
+      break;
+    }
+  }
+  return respond({ status: 'Time entry deleted' });
+}
+
+function pushTimeLogs(d) {
+  const sh = SS.getSheetByName('Time Log');
+  if (!sh) return respond({ error: 'No Time Log sheet' });
+  if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+  (d.rows || []).forEach(r => sh.appendRow(r));
+  return respond({ status: 'Time Log pushed', count: (d.rows || []).length });
+}
+
+function getTimeLogs() {
+  const sh = SS.getSheetByName('Time Log');
+  if (!sh) return respond({ logs: [] });
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return respond({ logs: [] });
+  const logs = data.slice(1).filter(r => r[0]).map(function(r) {
+    return {
+      ID: String(r[0] || ''),
+      User: String(r[1] || ''),
+      ClockIn: String(r[2] || ''),
+      ClockOut: String(r[4] || ''),
+      Origin: String(r[6] || 'auto'),
+      Notes: String(r[7] || ''),
+      CorrectedBy: String(r[8] || ''),
+      CorrectedAt: String(r[9] || ''),
+    };
+  });
+  return respond({ logs: logs });
 }
 
 function respond(data) {

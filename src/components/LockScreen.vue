@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useAppStore } from '@/stores/state.js';
 import { useToast } from '@/composables/useToast.js';
 import { pullFromSheets, restoreTodaySales, getQueue } from '@/composables/useSync.js';
+import { useTimeLog } from '@/composables/useTimeLog.js';
 
 const store     = useAppStore();
 const { toast } = useToast();
@@ -23,6 +24,7 @@ async function localHash(pin) {
 function login(user) {
   store.currentUser = user;
   localStorage.setItem('kt_user', user);
+  useTimeLog().clockIn(user);
   if (store.scriptUrl) {
     restoreTodaySales().catch(() => {});
     setTimeout(() => {
