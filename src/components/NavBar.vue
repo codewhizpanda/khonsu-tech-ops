@@ -2,12 +2,15 @@
 import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAppStore } from '@/stores/state.js';
+import { useToast } from '@/composables/useToast.js';
 
 const store  = useAppStore();
 const router = useRouter();
 const route  = useRoute();
+const { toast } = useToast();
 
 const isAdmin    = computed(() => store.currentUser === 'Admin');
+const isStaff    = computed(() => !!store.currentUser && store.currentUser !== 'Admin');
 const drawerOpen = ref(false);
 const openIssueCount = computed(() => store.errorLogs.filter(e => e.status === 'open').length);
 
@@ -55,6 +58,52 @@ function logout() {
   router.push('/sales');
   drawerOpen.value = false;
 }
+
+// Self-service PIN change for Sam/Joyce — Admin already has one in Settings.
+const changePinModal = ref(false);
+const cpCurrent = ref('');
+const cpNew     = ref('');
+const cpConfirm = ref('');
+const cpStatus  = ref('');
+const cpOk      = ref(false);
+const cpBusy    = ref(false);
+
+function openChangePin() {
+  changePinModal.value = true;
+  cpCurrent.value = ''; cpNew.value = ''; cpConfirm.value = '';
+  cpStatus.value  = ''; cpOk.value  = false;
+  drawerOpen.value = false;
+}
+
+function closeChangePin() {
+  changePinModal.value = false;
+}
+
+async function submitChangePin() {
+  cpOk.value = false;
+  if (!cpCurrent.value || !cpNew.value || !cpConfirm.value) { cpStatus.value = 'All fields are required.'; return; }
+  if (cpNew.value.length < 4) { cpStatus.value = 'New PIN must be at least 4 digits.'; return; }
+  if (cpNew.value !== cpConfirm.value) { cpStatus.value = 'New PIN and confirmation do not match.'; return; }
+  if (!store.scriptUrl) { cpStatus.value = 'Connect Google Sheets first to manage your PIN.'; return; }
+  cpBusy.value = true;
+  try {
+    const res = await fetch(store.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'setUserPin', user: store.currentUser, current: cpCurrent.value, next: cpNew.value }),
+    });
+    const data = await res.json();
+    if (data.error) { cpStatus.value = data.error; return; }
+    cpCurrent.value = ''; cpNew.value = ''; cpConfirm.value = '';
+    cpOk.value = true;
+    cpStatus.value = 'PIN updated successfully.';
+    toast('PIN updated!', 'success');
+  } catch {
+    cpStatus.value = 'Could not reach server. Check your connection.';
+  } finally {
+    cpBusy.value = false;
+  }
+}
 </script>
 
 <template>
@@ -63,10 +112,15 @@ function logout() {
     <div style="font-size:13px;font-weight:800;color:var(--accent);white-space:nowrap;letter-spacing:-.3px;">Khonsu Tech OPS</div>
 
     <!-- Desktop: user/switch -->
-    <button class="btn btn-outline btn-sm nav-user-btn" style="font-size:12px;white-space:nowrap;flex-shrink:0;" @click="logout">
-      <svg class="ic" aria-hidden="true"><use href="#ic-user"/></svg>
-      {{ store.currentUser }} — Switch
-    </button>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+      <button v-if="isStaff" class="btn btn-outline btn-sm" style="font-size:12px;white-space:nowrap;padding:6px 8px;" title="Change PIN" @click="openChangePin">
+        <svg class="ic" aria-hidden="true"><use href="#ic-key"/></svg>
+      </button>
+      <button class="btn btn-outline btn-sm nav-user-btn" style="font-size:12px;white-space:nowrap;" @click="logout">
+        <svg class="ic" aria-hidden="true"><use href="#ic-user"/></svg>
+        {{ store.currentUser }} — Switch
+      </button>
+    </div>
 
     <!-- Mobile: hamburger -->
     <button class="hamburger" @click="drawerOpen = true" aria-label="Open navigation">
@@ -131,7 +185,11 @@ function logout() {
           </div>
 
           <!-- Footer -->
-          <div style="padding:16px;border-top:1px solid var(--border);flex-shrink:0;">
+          <div style="padding:16px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
+            <button v-if="isStaff" class="btn btn-outline btn-lg" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;" @click="openChangePin">
+              <svg class="ic" aria-hidden="true"><use href="#ic-key"/></svg>
+              Change PIN
+            </button>
             <button class="btn btn-outline btn-lg" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;" @click="logout">
               <svg class="ic" aria-hidden="true"><use href="#ic-user"/></svg>
               Switch User
@@ -140,5 +198,33 @@ function logout() {
         </div>
       </div>
     </Transition>
+  </Teleport>
+
+  <!-- Change PIN modal -->
+  <Teleport to="body">
+    <div v-if="changePinModal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:center;justify-content:center;padding:24px;" @click.self="closeChangePin">
+      <div style="background:var(--surface);border-radius:16px;padding:24px;width:100%;max-width:360px;">
+        <h3 style="font-size:16px;font-weight:800;margin:0 0 16px;">Change PIN</h3>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block;">Current PIN</label>
+            <input v-model="cpCurrent" type="password" placeholder="Current PIN" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block;">New PIN</label>
+            <input v-model="cpNew" type="password" placeholder="New PIN (min. 4 digits)" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block;">Confirm New PIN</label>
+            <input v-model="cpConfirm" type="password" placeholder="Repeat new PIN" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box;" />
+          </div>
+          <p v-if="cpStatus" :style="{ color: cpOk ? 'var(--green)' : 'var(--red)', fontSize: '13px', margin: 0 }">{{ cpStatus }}</p>
+          <div style="display:flex;justify-content:flex-end;gap:10px;">
+            <button class="btn btn-outline" @click="closeChangePin">Cancel</button>
+            <button class="btn btn-primary" :disabled="cpBusy" @click="submitChangePin">{{ cpBusy ? 'Saving…' : 'Update PIN' }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </Teleport>
 </template>

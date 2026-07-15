@@ -156,6 +156,9 @@ function doPost(e) {
     if (d.action === 'saveSettings')        return saveSettings(d);
     if (d.action === 'verifyPin')           return verifyPin(d);
     if (d.action === 'setPin')              return setPin(d);
+    if (d.action === 'verifyStaffPin')      return verifyStaffPin(d);
+    if (d.action === 'setUserPin')          return setUserPin(d);
+    if (d.action === 'resetStaffPin')       return resetStaffPin(d);
     if (d.action === 'logPayment')          return logPayment(d);
     if (d.action === 'updatePaymentStatus') return updatePaymentStatus(d);
     if (d.action === 'pushPaymentLogs')     return pushPaymentLogs(d);
@@ -535,6 +538,36 @@ function setPin(d) {
   if (!d.next || String(d.next).length < 4) return respond({ error: 'New PIN must be at least 4 digits' });
   setSettingValue('AdminPinHash', sha256Hex(d.next));
   return respond({ status: 'PIN updated' });
+}
+
+var STAFF_USERS = ['Sam', 'Joyce'];
+
+function verifyStaffPin(d) {
+  var user = String(d.user || '');
+  if (STAFF_USERS.indexOf(user) === -1) return respond({ error: 'Unknown staff user' });
+  var stored = getSettingValue(user + 'PinHash') || DEFAULT_PIN_HASH;
+  return respond({ valid: sha256Hex(d.pin || '') === stored });
+}
+
+// Self-service PIN change — works for Sam/Joyce (and Admin, for symmetry), each
+// keyed by their own Settings row so changing one never touches another's PIN.
+function setUserPin(d) {
+  var user = String(d.user || '');
+  if (user !== 'Admin' && STAFF_USERS.indexOf(user) === -1) return respond({ error: 'Unknown user' });
+  var stored = getSettingValue(user + 'PinHash') || DEFAULT_PIN_HASH;
+  if (sha256Hex(d.current || '') !== stored) return respond({ error: 'Current PIN is incorrect' });
+  if (!d.next || String(d.next).length < 4) return respond({ error: 'New PIN must be at least 4 digits' });
+  setSettingValue(user + 'PinHash', sha256Hex(d.next));
+  return respond({ status: 'PIN updated' });
+}
+
+// Admin-only reset back to the shared default — no current-PIN check, since Admin
+// is already gated into Settings client-side (same soft-gate model as everywhere else).
+function resetStaffPin(d) {
+  var user = String(d.user || '');
+  if (STAFF_USERS.indexOf(user) === -1) return respond({ error: 'Unknown staff user' });
+  setSettingValue(user + 'PinHash', DEFAULT_PIN_HASH);
+  return respond({ status: user + "'s PIN reset to default" });
 }
 
 function getAllData() {

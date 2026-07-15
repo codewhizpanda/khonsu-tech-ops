@@ -103,8 +103,8 @@ src/
 
   components/
     SvgSprite.vue                ← inline <symbol> definitions for all icons, mounted once
-    LockScreen.vue                ← user picker (Sam/Joyce) + Admin PIN modal
-    NavBar.vue                     ← sticky header + desktop tab row + mobile hamburger drawer
+    LockScreen.vue                ← user picker (Sam/Joyce/Admin), each gated by its own PIN modal
+    NavBar.vue                     ← sticky header + desktop tab row + mobile hamburger drawer, Switch User + (Sam/Joyce) Change PIN
     SyncBanner.vue                  ← amber banner shown while the offline queue is non-empty
     SyncOverlay.vue                  ← full-screen fade overlay during sync operations
     Toast.vue                         ← renders the useToast() singleton
@@ -123,7 +123,7 @@ src/
     InventoryPage.vue                            ← read-only stock table with search/status filter
     PurchaseOrdersPage.vue                        ← PO list, inline edit modal, mark-sent, print
     MasterListPage.vue                             ← product catalogue CRUD, promotions, freebies
-    SettingsPage.vue                                ← targets, reorder points, Pasa cap toggle, Admin PIN change (General tab) + embeds SetupPage.vue (Sync tab)
+    SettingsPage.vue                                ← targets, reorder points, Pasa cap toggle, Admin PIN change + Staff PIN reset (General tab) + embeds SetupPage.vue (Sync tab)
     SetupPage.vue                                    ← Google Sheets connection wizard + embedded Apps Script source; no longer a standalone nav item, rendered inside Settings' "Sync" tab
     RestockPage.vue                                   ← "Receive Stock" — DR entry, IMEI/qty intake, scanner
     ReportsPage.vue                                    ← Today/Week/Month transaction report (Sheets-backed)
@@ -380,7 +380,7 @@ List of POs (search + Pending/Sent filter); **Edit** (pending only) opens a moda
 
 ### 8.6 Settings (`/settings`, `SettingsPage.vue`) — Admin only
 Tabbed: **General** and **Google Sheets Sync**. `activeTab` defaults from `route.query.tab` (`?tab=sync` opens the sync tab directly; `/setup` redirects here with that query for old bookmarks/links — see [§4](#4-project--file-structure)).
-- **General** — daily sales target, low-stock alert threshold, global default reorder point (with **Apply to All**), a per-product reorder-point override table, the **Pasa Amount Cap** toggle (`settings.pasaCapEnabled` — see [§11](#11-business-logic-reference)), and an **Admin PIN change** form (calls the `setPin` Apps Script action; requires Sheets connection).
+- **General** — daily sales target, low-stock alert threshold, global default reorder point (with **Apply to All**), a per-product reorder-point override table, the **Pasa Amount Cap** toggle (`settings.pasaCapEnabled` — see [§11](#11-business-logic-reference)), an **Admin PIN change** form (calls the `setPin` Apps Script action; requires Sheets connection), and a **Staff PINs** card letting Admin reset Sam's or Joyce's PIN back to the shared default (`resetStaffPin`) if either forgets theirs.
 - **Sync** — renders `SetupPage.vue` as a child component (unchanged internally, just no longer a standalone routed page/nav item): a 5-step wizard — (1) instructions to create a Google Sheet, (2) the full embedded Apps Script source with a **Copy Script** button (`navigator.clipboard`), (3) **Connect** (posts `{action:'init'}` to verify + store the Web App URL), (4) **Push All Data** — one-shot full overwrite of Master List + Inventory (+ promotions/freebies/settings) sheets from local state, (5) **Pull Latest Data** (`pullAll()` — new this revision) — the reverse direction: calls `pullFromSheets()` then `pullUnits()` on demand, for when data was loaded or edited directly in the Sheet (e.g. bulk-entering real IMEIs into `Units` for an initial stocktake) and you don't want to wait for the next login's automatic pull. Guarded the same way — a non-empty offline queue blocks it (with an explicit status message, unlike the silent automatic pull) so a manual pull can't clobber unsynced local edits.
 
 Setup was merged into Settings (as a tab, not a separate nav item) since both are the same "Admin configures how the app behaves" concern — this also shrank the nav from 11 items to 10. The desktop tab bar and mobile drawer (`NavBar.vue`) group remaining items into four sections in click-order: **Daily Operations** (Log Sale, Receive Stock, Payment Logs — all users), **Insights** (Dashboard, Reports), **Catalog & Stock** (Inventory, Master List, Purchase Orders), **System** (Settings, Sync Issues) — the latter three Admin-only. A thin `.nav-divider` (desktop) / `.drawer-section-label` (mobile) renders wherever consecutive items' `section` differs.
@@ -419,7 +419,7 @@ Google Sheets is intended as the cross-device **source of truth**; every device 
 | `restoreTodaySales()` | `GET ?action=getSales`, filtered to today, used to rehydrate `saleRows` on login (in addition to the local `kt_today` fallback in `initApp()`). |
 
 ### Actions the frontend sends — all implemented server-side as of this revision
-`init`, `logSale`, `voidSaleRow`, `updateInventoryItems`, `saveInventory`, `saveProducts` (alias of `pushMasterList`), `updateMasterList` (external-caller variant of `pushMasterList` — see [§10.7](#107-master-list-lazily-created--not-part-of-initsheets)), `updateUnitStatus`, `saveUnits`, `savePO`, `updatePOStatus`, `savePromotions`, `saveFreebies`, `saveSettings`, `verifyPin`, `setPin`, `logPayment`, `updatePaymentStatus`, `pushPaymentLogs`, `editPaymentLog`, `deletePaymentLog`, `logIssue`, `updateIssueStatus`, `pushIssueLogs`, plus GETs `getAllData`, `getSales`, `getPaymentLogs`, `getIssueLogs`, `getUnits` (**new this revision**), `getMasterList` (legacy), `ping`. Legacy/manual-only actions `logPO`, `pushInventory`, `pushMasterList` remain for the Setup page's "Push All Data" full-resync button.
+`init`, `logSale`, `voidSaleRow`, `updateInventoryItems`, `saveInventory`, `saveProducts` (alias of `pushMasterList`), `updateMasterList` (external-caller variant of `pushMasterList` — see [§10.7](#107-master-list-lazily-created--not-part-of-initsheets)), `updateUnitStatus`, `saveUnits`, `savePO`, `updatePOStatus`, `savePromotions`, `saveFreebies`, `saveSettings`, `verifyPin`, `setPin`, `verifyStaffPin`, `setUserPin`, `resetStaffPin` (**new this revision**), `logPayment`, `updatePaymentStatus`, `pushPaymentLogs`, `editPaymentLog`, `deletePaymentLog`, `logIssue`, `updateIssueStatus`, `pushIssueLogs`, plus GETs `getAllData`, `getSales`, `getPaymentLogs`, `getIssueLogs`, `getUnits` (**new this revision**), `getMasterList` (legacy), `ping`. Legacy/manual-only actions `logPO`, `pushInventory`, `pushMasterList` remain for the Setup page's "Push All Data" full-resync button.
 
 ### IMEI unit cross-device sync (`pullUnits()`, `useSync.js`)
 Previously a real gap, not just a documentation note: `saveUnits`/`updateUnitStatus` pushed real received-stock IMEIs *to* Sheets, but nothing ever pulled them back down — a second device (another staff phone, or any fresh/private-window session) had no way to learn a unit another device had already received. Its own `initApp()` dummy-IMEI backfill (see [§5](#5-state-management)) would silently invent a placeholder `DUMMY-...` unit to match the inventory stock count instead, and that placeholder could never match a real barcode scan — the exact failure mode this section used to only describe as a one-way (push-only) limitation.
@@ -469,7 +469,7 @@ Verified by executing the real extracted script against a simulated "old 4-colum
 | `Payment Logs` | `ID` (client-generated `PL-…`) | `logPayment`, `editPaymentLog`, `updatePaymentStatus`, `deletePaymentLog` | Upsert / full overwrite via `pushPaymentLogs` |
 | `Promotions` | none (client-generated `BundleID` stored, not matched against) | `savePromotions` | Full overwrite |
 | `Freebies` | none | `saveFreebies` | Full overwrite |
-| `Settings` | `Key` (simple key/value table) | `saveSettings`, `setPin` (stores `AdminPinHash`) | Upsert per key |
+| `Settings` | `Key` (simple key/value table) | `saveSettings`, `setPin` (stores `AdminPinHash`), `setUserPin`/`resetStaffPin` (store `SamPinHash`/`JoycePinHash`) | Upsert per key |
 | `Units` | `IMEI` | `saveUnits` (append), `updateUnitStatus` (matched by IMEI) | Mixed; col J `IsDummy` added this revision |
 | `Issue Log` | `ID` (client-generated `ERR-…`) | `logIssue` (upsert), `updateIssueStatus` | Upsert / full overwrite via `pushIssueLogs` |
 | `Master List` | `Key` (`ik(product)`, the one tab that stores the composite key as an actual column) | `pushMasterList`/`saveProducts` | Full overwrite |
@@ -582,7 +582,7 @@ These five tabs used to not exist at all — `getAllData` had no server-side han
 |---|---|---|---|
 | `Promotions` | `BundleID, Name, Price, MainProductKey, MainProductName, AddonProductKey, AddonProductName` | `savePromotions` (full overwrite) | Mirrors `store.predefinedBundles` verbatim |
 | `Freebies` | `MainProductKey, FreebieProductKey, MainProductName, FreebieProductName` | `saveFreebies` (full overwrite) | Mirrors `store.productFreebies` (denormalized to an array first client-side) |
-| `Settings` | `Key, Value` | `saveSettings` (`DailyTarget`/`LowStockThreshold`/`GlobalReorder`/`PasaCapEnabled`, one row each), `setPin` (`AdminPinHash`) | Generic key/value table rather than one fixed-column row, so it can hold both app settings and the Admin PIN hash without a schema change |
+| `Settings` | `Key, Value` | `saveSettings` (`DailyTarget`/`LowStockThreshold`/`GlobalReorder`/`PasaCapEnabled`, one row each), `setPin` (`AdminPinHash`), `setUserPin`/`resetStaffPin` (`SamPinHash`/`JoycePinHash`) | Generic key/value table rather than one fixed-column row, so it can hold app settings and every user's PIN hash without a schema change |
 | `Units` | `IMEI, ProductKey, ProductName, Color, Status, DRNumber, ReceivedDate, SONumber, SoldDate, IsDummy` | `saveUnits` (append new units from Receive Stock), `updateUnitStatus` (matched by IMEI, marks `sold` + SO/date on `confirmSale()`) | `IsDummy` column added this revision (writes `'false'` for every unit currently pushed — see below); dummy units themselves are still never sent here — see [§9](#what-is-not-synced) |
 | `Issue Log` | see [§6](#6-core-data-structures) | `logIssue` (upsert by ID), `updateIssueStatus` | Backs `/issues` |
 
@@ -644,7 +644,7 @@ SO and bundle/promo counters persist in `localStorage` (`kt_so`, `kt_pc`) and on
 ### Users & permissions
 | User | Routes visible | Notes |
 |---|---|---|
-| Sam / Joyce | Log Sale, Receive Stock | Standard staff, no PIN |
+| Sam / Joyce | Log Sale, Receive Stock | Requires PIN (Sheets `verifyStaffPin`, else local SHA-256 fallback; default `1234`, same soft-gate model as Admin — each can change their own via "Change PIN" in the nav; Admin can reset either back to default from Settings) |
 | Admin | All routes | Requires PIN (Sheets `verifyPin`, else local SHA-256 fallback; default `1234`) |
 
 There is no real authentication — `router.beforeEach` only checks `store.currentUser === 'Admin'` for `meta.adminOnly` routes, and the "PIN" is a soft convenience gate, not a security boundary (the app and its `localStorage` are fully accessible client-side regardless).
@@ -679,6 +679,7 @@ There is no real authentication — `router.beforeEach` only checks `store.curre
 - **No cross-device SO/PO numbering coordination** — counters are per-device/localStorage; concurrent devices can produce duplicate SO/PO numbers.
 - **No day-end submit gate** — sales push to Sheets immediately per-transaction; there's no explicit "has today been reconciled" state, so a device left connected indefinitely will keep accumulating `saleRows` until `closeDayReport()` is manually invoked.
 - **PIN is now checked server-side, but is still not real security** — see [§11](#users--permissions). `verifyPin`/`setPin` now hash and compare against a stored `Settings!AdminPinHash` (defaulting to the hash of `1234` until changed), so a correctly-deployed script enforces a real custom PIN — but the app and its `localStorage` remain fully accessible client-side regardless, and the local SHA-256 fallback (same default hash) still applies whenever Sheets is unreachable or not connected.
+- **Sam/Joyce PINs (`SamPinHash`/`JoycePinHash`) use the same soft-gate model, via new actions** — `verifyStaffPin`/`setUserPin`/`resetStaffPin` are deliberately separate from `verifyPin`/`setPin` (which stay Admin-only and unchanged), so a store still running an un-redeployed script just gets a clean "Unknown action" for the new ones instead of the old script silently applying a staff PIN change to `AdminPinHash`. Until each staff member changes it, Sam and Joyce (and Admin) all share the same default `1234` hash, so the anti-buddy-punching value only kicks in once PINs actually diverge — and like Admin's PIN, this is still a soft convenience gate, not real security.
 - **`localStorage` is origin-scoped** — moving the deployed URL (e.g. changing the GitHub Pages path) orphans all local data for staff devices already in use; only pricing/stock/sales already pushed to Sheets would be recoverable.
 - **CORS in local dev** — Apps Script only sends permissive CORS headers from the deployed Web App URL, not from `localhost`; errors during `npm run dev` against a live script are expected and are swallowed into the offline queue (and logged to `/issues`) by design.
 - **Issue-log pushes are best-effort, not queued** — unlike every other sync action, `logIssue`/`updateIssueStatus` pushes (`useErrorLog.js`) don't retry via the offline queue (to avoid a circular import with `useSync.js` — see [§6](#6-core-data-structures)). If Sheets is briefly unreachable exactly when an issue is logged, that specific push can be lost; the local copy never is, and Admin's **Push All to Sheets** on `/issues` is the manual recovery path.

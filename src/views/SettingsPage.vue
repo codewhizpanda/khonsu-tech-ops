@@ -204,6 +204,29 @@ async function changePin() {
     pinStatus.value = 'Could not reach server. Check your connection.';
   }
 }
+
+// Staff PIN reset — Admin doesn't need to know a staff member's current PIN,
+// just resets it back to the shared default so they can set a new one themselves.
+const resettingStaff = ref('');
+async function resetStaffPin(user) {
+  if (!store.scriptUrl) { toast('Connect Google Sheets first (Sync tab)', 'error'); return; }
+  if (!confirm(`Reset ${user}'s PIN to the default (1234)?`)) return;
+  resettingStaff.value = user;
+  try {
+    const res = await fetch(store.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'resetStaffPin', user }),
+    });
+    const data = await res.json();
+    if (data.error) { toast(data.error, 'error'); return; }
+    toast(user + "'s PIN reset to default", 'success');
+  } catch {
+    toast('Could not reach server. Check your connection.', 'error');
+  } finally {
+    resettingStaff.value = '';
+  }
+}
 </script>
 
 <template>
@@ -329,6 +352,22 @@ async function changePin() {
           </div>
           <p v-if="pinStatus" :style="{ color: pinStatusOk ? 'var(--green)' : 'var(--red)', fontSize: '13px', margin: 0 }">{{ pinStatus }}</p>
           <button class="btn btn-primary" style="align-self:flex-start;" @click="changePin">Update PIN</button>
+        </div>
+      </div>
+
+      <!-- Staff PIN reset -->
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:6px;">Staff PINs</h3>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 16px;line-height:1.6;">
+          Sam and Joyce each set their own PIN by logging in and using "Change PIN" — if either forgets it, reset it back to the default (<strong>1234</strong>) here so they can log in and set a new one.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:360px;">
+          <div v-for="name in ['Sam', 'Joyce']" :key="name" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;">
+            <span style="font-size:14px;font-weight:600;">{{ name }}</span>
+            <button class="btn btn-outline btn-sm" :disabled="resettingStaff === name" @click="resetStaffPin(name)">
+              {{ resettingStaff === name ? 'Resetting…' : 'Reset to Default PIN' }}
+            </button>
+          </div>
         </div>
       </div>
     </template>

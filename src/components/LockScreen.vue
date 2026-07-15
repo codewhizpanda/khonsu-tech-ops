@@ -8,6 +8,7 @@ const store     = useAppStore();
 const { toast } = useToast();
 
 const pinModalOpen = ref(false);
+const pendingUser  = ref('');
 const pinValue     = ref('');
 const pinError     = ref('');
 const pinChecking  = ref(false);
@@ -31,7 +32,8 @@ function login(user) {
   toast('Welcome, ' + user + '!', 'success');
 }
 
-function openPinModal() {
+function openPinModal(user) {
+  pendingUser.value  = user;
   pinModalOpen.value = true;
   pinValue.value     = '';
   pinError.value     = '';
@@ -47,6 +49,8 @@ function closePinModal() {
 async function submitPin() {
   const pin = pinValue.value.trim();
   if (!pin) return;
+  const user = pendingUser.value;
+  const isAdmin = user === 'Admin';
   pinChecking.value = true;
   pinError.value    = '';
   try {
@@ -56,11 +60,11 @@ async function submitPin() {
       const res  = await fetch(store.scriptUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'verifyPin', pin }),
+        body: JSON.stringify(isAdmin ? { action: 'verifyPin', pin } : { action: 'verifyStaffPin', user, pin }),
       });
       const data = await res.json();
       if (data.error) {
-        // Server doesn't recognize verifyPin (e.g. not yet added to the deployed script) —
+        // Server doesn't recognize the action (e.g. not yet added to the deployed script) —
         // fall back to the local default-PIN check instead of always rejecting.
         offline = true;
         valid = (await localHash(pin)) === DEFAULT_PIN_HASH;
@@ -73,7 +77,7 @@ async function submitPin() {
     }
     if (valid) {
       closePinModal();
-      login('Admin');
+      login(user);
       if (offline && store.scriptUrl) toast('Server PIN check unavailable — logged in with offline PIN', 'success');
     } else {
       pinError.value = 'Incorrect PIN. Try again.';
@@ -83,7 +87,7 @@ async function submitPin() {
     const localValid = (await localHash(pin)) === DEFAULT_PIN_HASH;
     if (localValid) {
       closePinModal();
-      login('Admin');
+      login(user);
       toast('Server unreachable — logged in with offline PIN', 'success');
     } else {
       pinError.value = 'Server unreachable. Try the default PIN (1234) or check connection.';
@@ -103,13 +107,13 @@ async function submitPin() {
 
       <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">Who's logging in?</p>
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <button class="btn btn-outline" @click="login('Sam')">
+        <button class="btn btn-outline" @click="openPinModal('Sam')">
           <svg class="ic" aria-hidden="true"><use href="#ic-user"/></svg> Sam
         </button>
-        <button class="btn btn-outline" @click="login('Joyce')">
+        <button class="btn btn-outline" @click="openPinModal('Joyce')">
           <svg class="ic" aria-hidden="true"><use href="#ic-user"/></svg> Joyce
         </button>
-        <button class="btn btn-primary" @click="openPinModal">
+        <button class="btn btn-primary" @click="openPinModal('Admin')">
           <svg class="ic" aria-hidden="true"><use href="#ic-lock"/></svg> Admin
         </button>
       </div>
@@ -123,7 +127,7 @@ async function submitPin() {
     <div v-if="pinModalOpen" style="position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;" @click.self="closePinModal">
       <div style="background:var(--surface);border-radius:16px;padding:28px 24px;width:min(340px,90vw);box-shadow:0 8px 40px rgba(0,0,0,.3);">
         <h3 style="margin-bottom:16px;display:flex;align-items:center;gap:8px;">
-          <svg class="ic" aria-hidden="true"><use href="#ic-key"/></svg> Admin PIN
+          <svg class="ic" aria-hidden="true"><use href="#ic-key"/></svg> {{ pendingUser }} PIN
         </h3>
         <div class="field">
           <label>Enter PIN</label>
