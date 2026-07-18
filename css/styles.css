@@ -5,9 +5,9 @@
   --surface: #fff;
   --surface2: #e7e9ee;
   --border: #d7dbe3;
-  --accent: #2563eb;
-  --accent2: #1c2541;
-  --accent-light: #e8eefc;
+  --accent: #1c2541;
+  --accent2: #0b132b;
+  --accent-light: #e5e7f0;
   --green: #16a34a;
   --red: #dc2626;
   --yellow: #d97706;
@@ -36,7 +36,7 @@ header {
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 16px rgba(37, 99, 235, .18);
+  box-shadow: 0 2px 16px rgba(28, 37, 65, .18);
 }
 
 .logo {
@@ -69,7 +69,7 @@ nav {
   padding: 10px 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 4px rgba(37, 99, 235, .06);
+  box-shadow: 0 1px 4px rgba(28, 37, 65, .06);
   position: sticky;
   top: 52px;
   z-index: 99;
@@ -194,7 +194,7 @@ h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; color: var(--accent)
   border: 1.5px solid var(--border);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 1px 6px rgba(37, 99, 235, .06);
+  box-shadow: 0 1px 6px rgba(28, 37, 65, .06);
   margin-bottom: 14px;
 }
 .card h3 { font-size: 15px; font-weight: 600; color: var(--accent); margin-bottom: 14px; }
@@ -225,7 +225,7 @@ select {
 }
 input:focus, select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, .09);
+  box-shadow: 0 0 0 3px rgba(28, 37, 65, .09);
 }
 input[readonly] { background: var(--surface2); color: var(--muted); cursor: default; }
 
@@ -299,9 +299,9 @@ input[readonly] { background: var(--surface2); color: var(--muted); cursor: defa
   cursor: pointer;
   transition: all .15s;
   position: relative;
-  box-shadow: 0 1px 4px rgba(37, 99, 235, .05);
+  box-shadow: 0 1px 4px rgba(28, 37, 65, .05);
 }
-.pc:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(37, 99, 235, .12); }
+.pc:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(28, 37, 65, .12); }
 .pc.sel { border-color: var(--accent); background: var(--accent-light); }
 .pc.oos { opacity: .45; cursor: not-allowed; }
 .pc .cl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 5px; }
@@ -319,7 +319,7 @@ input[readonly] { background: var(--surface2); color: var(--muted); cursor: defa
   border: 1.5px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 1px 6px rgba(37, 99, 235, .06);
+  box-shadow: 0 1px 6px rgba(28, 37, 65, .06);
 }
 table { width: 100%; border-collapse: collapse; }
 th {
@@ -364,7 +364,7 @@ tr:hover td { background: var(--accent-light); }
   padding: 13px 18px;
   font-size: 13px;
   font-weight: 500;
-  box-shadow: 0 8px 32px rgba(37, 99, 235, .25);
+  box-shadow: 0 8px 32px rgba(28, 37, 65, .25);
   z-index: 999;
   transform: translateY(80px);
   opacity: 0;
