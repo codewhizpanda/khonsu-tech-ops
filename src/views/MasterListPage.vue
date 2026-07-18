@@ -211,8 +211,8 @@ const freebieEntries = computed(() =>
       <button @click="filterStatus = 'All'" style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0;">✕ Clear</button>
     </div>
     <Teleport to="body">
-      <div v-if="filterOpen" style="position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;" @click.self="filterOpen = false">
-        <div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 20px 32px;">
+      <div v-if="filterOpen" style="position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;" @click.self="filterOpen = false">
+        <div style="background:var(--surface);border-radius:20px;width:100%;max-width:480px;padding:20px;max-height:calc(100vh - 32px);overflow-y:auto;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
             <span style="font-size:15px;font-weight:700;">Filter by Status</span>
             <button @click="filterOpen = false" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);line-height:1;">&times;</button>
