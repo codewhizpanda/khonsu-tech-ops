@@ -1,12 +1,12 @@
 {
   "name": "Khonsu Tech OPS",
   "short_name": "KhonsuOPS",
-  "description": "Sales Operations System — Khonsu Electronic Gadgets Trading (ITEL Mobile)",
+  "description": "Sales Operations System — Khonsu Tech",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0f1a40",
-  "theme_color": "#1b2e6b",
+  "background_color": "#0b132b",
+  "theme_color": "#0b132b",
   "orientation": "any",
   "icons": [
     {

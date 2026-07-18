@@ -333,10 +333,10 @@ export function useSales() {
     const win = window.open('', '_blank');
     win.document.write(`<!DOCTYPE html><html><head><title>Daily Sales Report</title><style>
 body{font-family:Arial,sans-serif;padding:32px;font-size:12px;}h1{font-size:15px;margin-bottom:2px;}.sub{color:#666;font-size:11px;margin-bottom:16px;}
-table{width:100%;border-collapse:collapse;margin:16px 0;}th{background:#1b2e6b;color:#fff;padding:8px;text-align:left;font-size:10px;}
+table{width:100%;border-collapse:collapse;margin:16px 0;}th{background:#1c2541;color:#fff;padding:8px;text-align:left;font-size:10px;}
 td{padding:7px 8px;border-bottom:1px solid #eee;font-size:11px;}.tf td{background:#e8ecf4;font-weight:700;}
 .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px;}.box{border:1px solid #d0d7e8;border-radius:6px;padding:12px;}
-.box h3{font-size:12px;font-weight:700;margin-bottom:8px;color:#1b2e6b;}.row{display:flex;justify-content:space-between;margin-bottom:4px;}
+.box h3{font-size:12px;font-weight:700;margin-bottom:8px;color:#1c2541;}.row{display:flex;justify-content:space-between;margin-bottom:4px;}
 .sig{margin-top:40px;}@media print{body{padding:16px;}}
 </style></head><body>
 <h1>KHONSU ELECTRONIC GADGETS TRADING (ITEL MOBILE)</h1>

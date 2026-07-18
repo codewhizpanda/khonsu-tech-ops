@@ -123,7 +123,7 @@ const donutSegments = computed(() => {
   const R = 15.9, circ = 2 * Math.PI * R;
   const raw = [
     { label: 'Cash', value: cash, color: '#16a34a' },
-    { label: 'Card', value: card, color: '#1b2e6b' },
+    { label: 'Card', value: card, color: '#2563eb' },
     { label: 'HC',   value: hc,   color: '#d97706' },
   ].filter(s => s.value > 0);
 

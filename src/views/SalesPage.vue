@@ -163,7 +163,7 @@ function clearSO() {
       <button
         v-if="store.pendingItems.length > 0"
         class="btn btn-primary btn-lg"
-        style="box-shadow:0 4px 16px rgba(27,46,107,.3);display:inline-flex;align-items:center;gap:8px;"
+        style="box-shadow:0 4px 16px rgba(37,99,235,.3);display:inline-flex;align-items:center;gap:8px;"
         @click="screen = 'review'"
       >
         <svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-cart"/></svg>
@@ -172,7 +172,7 @@ function clearSO() {
       <button
         v-else
         class="btn btn-outline btn-lg"
-        style="box-shadow:0 4px 16px rgba(27,46,107,.15);display:inline-flex;align-items:center;gap:8px;background:var(--surface);"
+        style="box-shadow:0 4px 16px rgba(37,99,235,.15);display:inline-flex;align-items:center;gap:8px;background:var(--surface);"
         @click="screen = 'report'"
       >
         <svg style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;" aria-hidden="true"><use href="#ic-clipboard"/></svg>

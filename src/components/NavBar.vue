@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useAppStore } from '@/stores/state.js';
 import { useToast } from '@/composables/useToast.js';
 import { useTimeLog } from '@/composables/useTimeLog.js';
+import logoHorizontal from '@/assets/logo/khonsu-tech-logo-horizontal.svg';
 
 const store  = useAppStore();
 const router = useRouter();
@@ -112,7 +113,7 @@ async function submitChangePin() {
 <template>
   <!-- Sticky top header -->
   <header style="background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;position:sticky;top:0;z-index:100;">
-    <div style="font-size:13px;font-weight:800;color:var(--accent);white-space:nowrap;letter-spacing:-.3px;">Khonsu Tech OPS</div>
+    <img :src="logoHorizontal" alt="Khonsu Tech" style="height:26px;width:auto;flex-shrink:0;" />
 
     <!-- Desktop: user/switch -->
     <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
@@ -159,8 +160,8 @@ async function submitChangePin() {
           <!-- Drawer header -->
           <div style="padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
             <div>
-              <div style="font-size:15px;font-weight:800;color:var(--accent);">Khonsu Tech OPS</div>
-              <div style="font-size:12px;color:var(--muted);margin-top:3px;">
+              <img :src="logoHorizontal" alt="Khonsu Tech" style="height:22px;width:auto;display:block;" />
+              <div style="font-size:12px;color:var(--muted);margin-top:8px;">
                 Logged in as <strong style="color:var(--text);">{{ store.currentUser }}</strong>
               </div>
             </div>

@@ -4,6 +4,7 @@ import { useAppStore } from '@/stores/state.js';
 import { useToast } from '@/composables/useToast.js';
 import { pullFromSheets, restoreTodaySales, getQueue } from '@/composables/useSync.js';
 import { useTimeLog } from '@/composables/useTimeLog.js';
+import logoPrimary from '@/assets/logo/khonsu-tech-logo-primary.svg';
 
 const store     = useAppStore();
 const { toast } = useToast();
@@ -103,8 +104,7 @@ async function submitPin() {
 <template>
   <div class="lock-screen">
     <div class="ls-card">
-      <div style="font-size:28px;margin-bottom:4px;">🏪</div>
-      <h1 style="font-size:18px;font-weight:700;color:var(--accent);margin-bottom:2px;">KHONSU ELECTRONIC GADGETS</h1>
+      <img :src="logoPrimary" alt="Khonsu Tech" style="height:88px;width:auto;margin-bottom:12px;" />
       <p style="font-size:12px;color:var(--muted);margin-bottom:24px;">Sales Operations System</p>
 
       <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">Who's logging in?</p>

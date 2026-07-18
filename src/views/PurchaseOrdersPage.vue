@@ -89,7 +89,7 @@ function printPO(po) {
 body{font-family:Arial,sans-serif;padding:32px;font-size:12px;color:#111;}
 .sub{color:#666;font-size:11px;margin-bottom:0;}h1{font-size:15px;margin-bottom:2px;}
 table{width:100%;border-collapse:collapse;margin:16px 0;}
-th{background:#1b2e6b;color:#fff;padding:8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;}
+th{background:#1c2541;color:#fff;padding:8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;}
 td{padding:8px;border-bottom:1px solid #eee;font-size:12px;}
 .meta{margin:12px 0;padding:12px;background:#f0f2f7;border-radius:6px;font-size:12px;line-height:2;}
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${statusBg};color:${statusColor};}

@@ -278,7 +278,7 @@ function initSheets() {
     if (sh.getLastRow() === 0) sh.appendRow(headers);
     else sh.getRange(1, 1, 1, headers.length).setValues([headers]);
     sh.getRange(1, 1, 1, headers.length)
-      .setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
+      .setFontWeight('bold').setBackground('#1c2541').setFontColor('white');
   });
   return respond({ status: 'Initialized' });
 }
@@ -374,7 +374,7 @@ function pushMasterList(d) {
     sh = SS.insertSheet('Master List');
     sh.appendRow(['Key','Category','Model','RAM','Storage','Colors','Unit Price','SRP','Status']);
     sh.getRange(1, 1, 1, 9)
-      .setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
+      .setFontWeight('bold').setBackground('#1c2541').setFontColor('white');
   }
   if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
   (d.rows || []).forEach(r => sh.appendRow(r));
@@ -391,7 +391,7 @@ function updateMasterList(d) {
     sh = SS.insertSheet('Master List');
     sh.appendRow(['Key','Category','Model','RAM','Storage','Colors','Unit Price','SRP','Status']);
     sh.getRange(1, 1, 1, 9)
-      .setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
+      .setFontWeight('bold').setBackground('#1c2541').setFontColor('white');
   }
   const rows = (d.rows || []).map(item => [
     item.key || '', item.category || '', item.model || '', item.ram || '',
@@ -500,7 +500,7 @@ function getSettingsSheet() {
   if (!sh) {
     sh = SS.insertSheet('Settings');
     sh.appendRow(['Key', 'Value']);
-    sh.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#1b2e6b').setFontColor('white');
+    sh.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#1c2541').setFontColor('white');
   }
   return sh;
 }
